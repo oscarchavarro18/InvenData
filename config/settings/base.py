@@ -121,3 +121,8 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
     "root": {"handlers": ["console"], "level": "INFO"},
 }
+# --- Autenticación ---
+AUTH_USER_MODEL = "accounts.Usuario"
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "inicio"
+LOGOUT_REDIRECT_URL = "login"
