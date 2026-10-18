@@ -143,6 +143,7 @@ def test_ajuste_de_conteo_con_motivo_es_valido(datos_movimiento, bodega):
         tipo="AJUSTE_CONTEO",
         motivo_ajuste="PERDIDA",
         ubicacion_origen=bodega,
+        observacion="Conteo físico del día",
         **datos_movimiento,
     )
     assert movimiento.pk is not None
@@ -173,7 +174,8 @@ def test_un_reverso_apunta_al_movimiento_que_corrige(datos_movimiento, bodega):
         tipo="RECEPCION", ubicacion_destino=bodega, **datos_movimiento
     )
     reverso = Movimiento.objects.create(
-        tipo="MERMA_EMBULTAJE",
+        tipo="AJUSTE_CONTEO",
+        motivo_ajuste="ERROR_CONTEO",
         ubicacion_origen=bodega,
         movimiento_reversado=original,
         observacion="Se digitó mal la cantidad",

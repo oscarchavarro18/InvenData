@@ -14,14 +14,6 @@ from apps.inventario.servicios import (
     existencia_de,
     registrar_movimiento,
 )
-from apps.maestros.models import Ubicacion
-
-
-@pytest.fixture
-def tunel(db):
-    return Ubicacion.objects.create(
-        codigo="TUN-01", nombre="Túnel de congelación 1", tipo="TUNEL_CONGELACION"
-    )
 
 
 def recibir(lote, ubicacion, cantidad, usuario):
