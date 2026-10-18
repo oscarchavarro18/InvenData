@@ -9,3 +9,12 @@ class ModeloBase(models.Model):
 
     class Meta:
         abstract = True
+
+
+class ModeloCreacion(models.Model):
+    """Tablas del Diccionario que solo llevan creado_en: documentos y líneas que no se editan."""
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        abstract = True
