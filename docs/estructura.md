@@ -36,4 +36,5 @@
 - Los CHECK del modelo se implementan como `CheckConstraint`; las reglas "validar en la aplicación" en `clean()` o en la capa de servicios del módulo.
 - Claves foráneas con `on_delete=PROTECT` en todo lo histórico (nada se borra; RNF-06).
 - Las correcciones de inventario se hacen con movimientos inversos, nunca editando (RF-09), y solo el Gerente las registra.
+- El inventario solo se mueve con `registrar_movimiento` (apps/inventario/servicios.py): una sola transacción registra el movimiento y actualiza la existencia, que nunca queda negativa.
 - Los perfiles (Gerente, Jefe de bodega, Administrador de PDV, Consulta) son datos de referencia cargados por migración.
