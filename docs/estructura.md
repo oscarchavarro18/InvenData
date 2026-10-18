@@ -20,7 +20,7 @@
 | `auditoria` | M1 | auditoria, evidencia ✔ |
 | `levantamiento` | M0 | inventario_inicial, inventario_inicial_detalle_lote, inventario_inicial_detalle_producto |
 | `recepcion` | M2 | documento_proveedor ✔, documento_proveedor_linea ✔, recepcion |
-| `inventario` | M3 | lote, movimiento, existencia |
+| `inventario` | M3 | lote, movimiento, existencia ✔ |
 | `transformacion` | M4 | orden_transformacion, transformacion_derivado |
 | `embultaje` | M5 | documento_embultaje, embultaje_registro, bulto, pedido, pedido_linea, alistamiento_detalle |
 | `despacho` | M6 | despacho_mayorista, despacho_detalle, traslado_pdv, traslado_pdv_detalle, traslado_pdv_observacion |
@@ -28,7 +28,7 @@
 | `conteo` | M8 | conteo_fisico, conteo_fisico_detalle |
 | `reportes` | M9 | (sin tablas: consulta lo anterior) |
 
-✔ = implementada. Total del modelo: 41 tablas. Implementadas hasta ahora: 13 (M1 completo: perfil, usuario, los maestros, auditoria y evidencia; M2 en curso: documento_proveedor y documento_proveedor_linea).
+✔ = implementada. Total del modelo: 41 tablas. Implementadas hasta ahora: 16 (M1 completo: perfil, usuario, los maestros, auditoria y evidencia; M3 núcleo: lote, movimiento y existencia; M2 en curso: documento_proveedor y documento_proveedor_linea).
 
 ## Convenciones
 
