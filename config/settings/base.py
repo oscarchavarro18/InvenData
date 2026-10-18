@@ -23,7 +23,21 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
 ]
 # Una aplicación por módulo funcional; se agregan una a una (M0 a M9).
-LOCAL_APPS = []
+LOCAL_APPS = [
+    "apps.core",
+    "apps.accounts",
+    "apps.maestros",
+    "apps.auditoria",
+    "apps.levantamiento",
+    "apps.recepcion",
+    "apps.inventario",
+    "apps.transformacion",
+    "apps.embultaje",
+    "apps.despacho",
+    "apps.puntoventa",
+    "apps.conteo",
+    "apps.reportes",
+]
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
