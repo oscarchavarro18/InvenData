@@ -9,6 +9,8 @@ repos:
       - id: check-added-large-files
         args: ["--maxkb=1024"]
       - id: detect-private-key
+      - id: no-commit-to-branch
+        args: ["--branch", "main", "--branch", "develop"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.1
     hooks:
