@@ -181,6 +181,20 @@ class Movimiento(ModeloCreacion):
                 ),
                 name="movimiento_motivo_solo_en_ajuste",
             ),
+            models.CheckConstraint(
+                condition=(
+                    Q(movimiento_reversado__isnull=True)
+                    | Q(tipo=TipoMovimiento.AJUSTE_CONTEO, motivo_ajuste=MotivoAjuste.ERROR_CONTEO)
+                ),
+                name="movimiento_reverso_es_ajuste_por_error",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    (Q(movimiento_reversado__isnull=True) & ~Q(tipo=TipoMovimiento.AJUSTE_CONTEO))
+                    | (Q(observacion__isnull=False) & ~Q(observacion=""))
+                ),
+                name="movimiento_observacion_obligatoria",
+            ),
         ]
 
     def __str__(self):

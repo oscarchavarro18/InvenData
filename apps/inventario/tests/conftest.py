@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from apps.inventario.models import Lote
-from apps.maestros.models import CategoriaProducto, Producto, Proveedor
+from apps.maestros.models import CategoriaProducto, Producto, Proveedor, Ubicacion
 from apps.recepcion.models import DocumentoProveedor, DocumentoProveedorLinea
 
 
@@ -47,4 +47,11 @@ def lote(linea, datos_lote):
     """Lote de recepción: el caso normal."""
     return Lote.objects.create(
         codigo="L-000001", origen="RECEPCION", documento_proveedor_linea=linea, **datos_lote
+    )
+
+
+@pytest.fixture
+def tunel(db):
+    return Ubicacion.objects.create(
+        codigo="TUN-01", nombre="Túnel de congelación 1", tipo="TUNEL_CONGELACION"
     )

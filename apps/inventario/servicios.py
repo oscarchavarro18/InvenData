@@ -202,3 +202,58 @@ def registrar_movimiento(
     return _crear_movimiento(
         lote, tipo, cantidad, usuario, ubicacion_origen, ubicacion_destino, extra
     )
+
+
+@transaction.atomic
+def reversar_movimiento(*, movimiento, usuario, observacion):
+    """Deshace un movimiento con ajustes inversos, sin editar nada (RF-09).
+
+    Cada efecto del original se compensa con un AJUSTE_CONTEO por ERROR_CONTEO que apunta a él:
+    un traslado de dos lados genera dos ajustes. Devuelve la lista de ajustes creados.
+    """
+    if not usuario.es_gerente:
+        raise PermissionDenied("Solo el Gerente puede reversar movimientos.")
+    observacion = (observacion or "").strip() or None
+    if observacion is None:
+        raise MovimientoInvalido("El reverso exige una observación escrita.")
+
+    # Mismo orden que registrar_movimiento: primero el lote, así dos reversos no se cruzan.
+    lote = Lote.objects.select_for_update().get(pk=movimiento.lote_id)
+    original = Movimiento.objects.get(pk=movimiento.pk)
+    if original.movimiento_reversado_id is not None:
+        raise MovimientoInvalido("Un reverso no se puede reversar.")
+    if Movimiento.objects.filter(movimiento_reversado=original).exists():
+        raise MovimientoInvalido("El movimiento ya fue reversado.")
+
+    extra = {
+        "motivo_ajuste": MotivoAjuste.ERROR_CONTEO,
+        "observacion": observacion,
+        "movimiento_reversado": original,
+    }
+    ajustes = []
+    # Primero lo que resta: si el saldo ya no alcanza, falla antes de sumar nada.
+    if original.ubicacion_destino_id and original.tipo != TipoMovimiento.TRASLADO_PDV:
+        ajustes.append(
+            _crear_movimiento(
+                lote,
+                TipoMovimiento.AJUSTE_CONTEO,
+                original.cantidad,
+                usuario,
+                original.ubicacion_destino,
+                None,
+                extra,
+            )
+        )
+    if original.ubicacion_origen_id:
+        ajustes.append(
+            _crear_movimiento(
+                lote,
+                TipoMovimiento.AJUSTE_CONTEO,
+                original.cantidad,
+                usuario,
+                None,
+                original.ubicacion_origen,
+                extra,
+            )
+        )
+    return ajustes
