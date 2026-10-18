@@ -1,15 +1,4 @@
-# InvenData — Tablero de control
+# InvenData
 
-Tablero de control y gestión del proyecto InvenData.
-
-## Gestión del proyecto
-
-El proyecto utiliza GitHub Issues, GitHub Projects, Labels y Milestones.
-
-## Estados
-
-- Backlog
-- En progreso
-- En revisión
-- Hecho
-- Bloqueado
+Sistema web para la gestión y trazabilidad de inventarios de Pid Consulting S.A.S.
+Proyecto de grado · Ingeniería de Sistemas · Universidad El Bosque.
