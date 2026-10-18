@@ -1,3 +1,6 @@
-from django.db import models
+"""M5 · Embultaje, pedidos y alistamiento (RF-30 a RF-34).
 
-# Create your models here.
+Tablas previstas (Diccionario de datos): documento_embultaje, embultaje_registro, bulto, pedido,
+pedido_linea, alistamiento_detalle.
+Se implementan módulo por módulo, con db_table igual al nombre del diccionario.
+"""

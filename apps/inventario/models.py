@@ -1,3 +1,5 @@
-from django.db import models
+"""M3 · Núcleo de inventario en bodega (RF-18 a RF-22).
 
-# Create your models here.
+Tablas previstas (Diccionario de datos): lote, movimiento, existencia.
+Se implementan módulo por módulo, con db_table igual al nombre del diccionario.
+"""
