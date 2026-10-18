@@ -1,5 +1,15 @@
 # Estructura del proyecto
 
+    invendata/
+    |-- config/              Configuración de Django (settings por entorno: base, dev, test, prod)
+    |-- apps/                Una aplicación por módulo funcional
+    |-- templates/ static/   Interfaz (Bootstrap 5)
+    |-- requirements/        base.txt, dev.txt, prod.txt
+    |-- docker/              Script de arranque del contenedor web
+    |-- docs/                Convenciones del equipo
+    |-- Makefile             Atajos de desarrollo (make up, make test, make lint...)
+    `-- .github/             CI, plantilla de PR y Dependabot
+
 ## Aplicaciones, módulos y tablas del Diccionario de datos
 
 | App | Módulo | Tablas |
