@@ -38,6 +38,12 @@
           {% endif %}
         </div>
       </div>
+      {% if puede_operar and not fila.lotes %}
+      <form method="post" action="{% url 'recepcion:linea_eliminar' fila.linea.pk %}" data-confirmar="¿Quitar esta línea del documento?">
+        {% csrf_token %}
+        <button class="boton boton--peligro boton--chico" type="submit">Quitar</button>
+      </form>
+      {% endif %}
     </div>
   </div>
 
@@ -91,6 +97,32 @@
 <section class="tarjeta"><p class="vacio">Este documento no tiene líneas.</p></section>
 {% endfor %}
 
+{% if puede_operar %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Agregar producto al documento</h2></div>
+  <div class="tarjeta__cuerpo">
+    <form method="post" action="{% url 'recepcion:linea_agregar' documento.pk %}" class="fila-form">
+      {% csrf_token %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ linea_form.producto.id_for_label }}">Producto</label>
+        {{ linea_form.producto }}
+      </div>
+      <div class="campo">
+        <label class="etiqueta" for="{{ linea_form.cantidad.id_for_label }}">Cantidad declarada (kg)</label>
+        {{ linea_form.cantidad }}
+      </div>
+      <button class="boton" type="submit">Agregar</button>
+    </form>
+  </div>
+</section>
+{% endif %}
 
 
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+</script>
 {% endblock %}

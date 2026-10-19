@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Sin permiso · InvenData{% endblock %}
+{% block encabezado %}Sin permiso{% endblock %}
+{% block contenido %}
+<section class="tarjeta tarjeta--angosta">
+  <div class="tarjeta__cuerpo">
+    <h2>No tiene permiso para esta acción</h2>
+    <p class="barra__texto">Su perfil ({{ user.perfil }}) no puede realizarla. Si la necesita, pídasela a la gerencia.</p>
+    <a class="boton" href="{% url 'inicio' %}">Volver al inicio</a>
+  </div>
+</section>
+{% endblock %}

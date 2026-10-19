@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titulo %}Nuevo documento · InvenData{% endblock %}
+{% block encabezado %}Nuevo documento del proveedor{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'recepcion:documento_lista' %}">← Volver a recepción</a>
+<form method="post" novalidate class="tarjeta tarjeta--angosta">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>Datos del documento</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      <div class="campo{% if forloop.first %} campo--ancho{% endif %}">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{% url 'recepcion:documento_lista' %}">Cancelar</a>
+      <button class="boton" type="submit">Crear documento</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

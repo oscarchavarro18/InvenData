@@ -98,6 +98,14 @@ class Usuario(AbstractBaseUser, ModeloBase):
         return self.activo and self.perfil.codigo == Perfil.Codigo.GERENTE
 
     @property
+    def puede_operar_recepcion(self):
+        """Quien recibe producto en bodega: gerente y jefe de bodega (RF-02)."""
+        return self.activo and self.perfil.codigo in (
+            Perfil.Codigo.GERENTE,
+            Perfil.Codigo.JEFE_BODEGA,
+        )
+
+    @property
     def is_staff(self):
         return self.es_gerente
 

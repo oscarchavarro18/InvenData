@@ -10,14 +10,20 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Sum
 from django.utils import timezone
 
 from apps.inventario.models import EstadoProducto, Lote, OrigenLote, TipoMovimiento
 from apps.inventario.servicios import registrar_movimiento
 from apps.maestros.models import TipoUbicacion, Ubicacion
-from apps.recepcion.models import DocumentoProveedor, EstadoDocumento, Recepcion
+from apps.recepcion.models import (
+    DocumentoProveedor,
+    DocumentoProveedorLinea,
+    EstadoDocumento,
+    Recepcion,
+    TipoDocumentoRecepcion,
+)
 
 # Adonde puede llegar el producto recién recibido (DBML: túnel, sostenimiento o, para cortar
 # o reempacar de una vez, la zona de transformación). Ni punto de venta ni zona de bultos.
@@ -60,6 +66,69 @@ def _documento_abierto(documento_id):
     if documento.estado != EstadoDocumento.ABIERTO:
         raise RecepcionInvalida("El documento ya está cerrado: no admite más lotes ni pesadas.")
     return documento
+
+
+@transaction.atomic
+def crear_documento(*, proveedor, tipo_documento, numero_documento, fecha):
+    """Abre un documento del proveedor (factura o remisión) sin líneas todavía (RF-11)."""
+    if not proveedor.activo:
+        raise RecepcionInvalida("El proveedor está inactivo.")
+    if tipo_documento not in TipoDocumentoRecepcion.values:
+        raise RecepcionInvalida("El tipo de documento debe ser FACTURA o REMISION.")
+    numero = (numero_documento or "").strip()
+    if not numero:
+        raise RecepcionInvalida("El número del documento es obligatorio.")
+    if len(numero) > 30:
+        raise RecepcionInvalida("El número del documento admite como máximo 30 caracteres.")
+    if not isinstance(fecha, date):
+        raise RecepcionInvalida("La fecha del documento no es una fecha válida.")
+
+    ya_existe = RecepcionInvalida(
+        f"Ya existe el documento {tipo_documento} {numero} de {proveedor.razon_social}."
+    )
+    if DocumentoProveedor.objects.filter(
+        proveedor=proveedor, tipo_documento=tipo_documento, numero_documento=numero
+    ).exists():
+        raise ya_existe
+    try:
+        # Subtransacción: si otro usuario lo crea al mismo tiempo, la restricción única
+        # de la base lo detiene y se responde con el mismo mensaje.
+        with transaction.atomic():
+            return DocumentoProveedor.objects.create(
+                proveedor=proveedor,
+                tipo_documento=tipo_documento,
+                numero_documento=numero,
+                fecha=fecha,
+            )
+    except IntegrityError:
+        raise ya_existe from None
+
+
+@transaction.atomic
+def agregar_linea(*, documento, producto, cantidad):
+    """Agrega un producto declarado a un documento abierto (RF-11, RF-15)."""
+    _documento_abierto(documento.pk)
+    if not producto.activo:
+        raise RecepcionInvalida("El producto está inactivo.")
+    declarada = _decimal(cantidad, "La cantidad")
+    if declarada <= CERO:
+        raise RecepcionInvalida("La cantidad debe ser mayor que cero.")
+    if declarada >= LIMITE_PESO:
+        raise RecepcionInvalida("La cantidad es demasiado grande.")
+    if DocumentoProveedorLinea.objects.filter(documento_proveedor=documento, producto=producto):
+        raise RecepcionInvalida(f"El producto {producto.nombre} ya está en el documento.")
+    return DocumentoProveedorLinea.objects.create(
+        documento_proveedor=documento, producto=producto, cantidad=declarada
+    )
+
+
+@transaction.atomic
+def eliminar_linea(*, linea):
+    """Quita una línea de un documento abierto, si todavía no generó lotes."""
+    _documento_abierto(linea.documento_proveedor_id)
+    if linea.lotes.exists():
+        raise RecepcionInvalida("La línea ya tiene lotes: elimínelos antes de quitarla.")
+    linea.delete()
 
 
 @transaction.atomic

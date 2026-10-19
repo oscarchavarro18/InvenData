@@ -76,3 +76,20 @@ def test_el_menu_resalta_la_seccion_actual(con_sesion):
     assert reverse("inicio") in activo
     recepcion = con_sesion.get(reverse("recepcion:documento_lista")).content.decode()
     assert reverse("recepcion:documento_lista") in recepcion.split("menu__item--activo")[1][:200]
+
+
+def test_el_tablero_oculta_la_accion_de_recepcion_a_quien_no_puede_operar(client, db):
+    from apps.accounts.models import Perfil, Usuario
+
+    consulta = Usuario.objects.create_user(
+        "consulta",
+        "ClaveSegura123",
+        nombre_completo="Solo consulta",
+        perfil=Perfil.objects.get(codigo="CONSULTA"),
+    )
+    client.force_login(consulta)
+    assert "Nuevo documento del proveedor" not in client.get(reverse("inicio")).content.decode()
+
+
+def test_el_tablero_ofrece_la_accion_de_recepcion_al_jefe_de_bodega(con_sesion):
+    assert "Nuevo documento del proveedor" in con_sesion.get(reverse("inicio")).content.decode()
