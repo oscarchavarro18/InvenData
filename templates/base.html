@@ -1,27 +1,135 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#13213a">
   <title>{% block titulo %}InvenData{% endblock %}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <script>document.documentElement.classList.add("js");</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="{% static 'css/invendata.css' %}">
 </head>
-<body class="bg-light">
-  <nav class="navbar navbar-dark" style="background:#13213A">
-    <div class="container">
-      <a class="navbar-brand fw-semibold" href="{% url 'inicio' %}">InvenData</a>
-      {% if user.is_authenticated %}
-      <a class="nav-link text-white-50 me-auto ms-4" href="{% url 'recepcion:documento_lista' %}">Recepción</a>
-      <form method="post" action="{% url 'logout' %}" class="d-flex align-items-center gap-3 m-0">
-        {% csrf_token %}
-        <span class="text-white-50 small">{{ user.nombre_completo }} · {{ user.perfil }}</span>
-        <button class="btn btn-sm btn-outline-light" type="submit">Salir</button>
-      </form>
-      {% endif %}
+<body>
+{% block cuerpo %}
+{% with ruta=request.resolver_match %}
+<a class="saltar" href="#contenido">Saltar al contenido</a>
+<div class="app" id="app">
+  <aside class="lateral" id="menu-lateral">
+    <div class="lateral__cabeza">
+      <a class="marca" href="{% url 'inicio' %}">
+        <span class="marca__logo" aria-hidden="true">I</span>InvenData
+      </a>
+      <button class="lateral__cerrar" type="button" data-cerrar-menu aria-label="Cerrar menú">
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+      </button>
     </div>
-  </nav>
-  <main class="container py-4">
-    {% block contenido %}{% endblock %}
-  </main>
+    <nav class="menu" aria-label="Principal">
+      <a class="menu__item{% if ruta.url_name == 'inicio' %} menu__item--activo{% endif %}" href="{% url 'inicio' %}"{% if ruta.url_name == 'inicio' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <span class="menu__item menu__item--apagado" aria-disabled="true">
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+        Productos<span class="menu__pronto">Pronto</span>
+      </span>
+      <a class="menu__item{% if ruta.namespace == 'recepcion' %} menu__item--activo{% endif %}" href="{% url 'recepcion:documento_lista' %}"{% if ruta.namespace == 'recepcion' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        Recepción
+      </a>
+      <span class="menu__item menu__item--apagado" aria-disabled="true">
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l10 5-10 5L2 7l10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        Inventario<span class="menu__pronto">Pronto</span>
+      </span>
+      <span class="menu__item menu__item--apagado" aria-disabled="true">
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        Reportes<span class="menu__pronto">Pronto</span>
+      </span>
+      <span class="menu__item menu__item--apagado" aria-disabled="true">
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
+        Configuración<span class="menu__pronto">Pronto</span>
+      </span>
+    </nav>
+    <div class="lateral__pie">Pid Consulting S.A.S.<br>Neiva, Huila</div>
+  </aside>
+  <div class="velo" data-cerrar-menu></div>
+
+  <div class="principal">
+    <header class="encabezado">
+      <div class="encabezado__izquierda">
+        <button class="boton-menu" type="button" id="boton-menu" aria-label="Abrir menú" aria-controls="menu-lateral" aria-expanded="false">
+          <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>
+        </button>
+        <h1>{% block encabezado %}InvenData{% endblock %}</h1>
+      </div>
+      <details class="usuario-menu">
+        <summary aria-label="Menú de usuario">
+          <span class="avatar" aria-hidden="true">{{ user.nombre_completo|default:user.usuario|slice:":1"|upper }}</span>
+          <span class="usuario-menu__nombre">{{ user.nombre_completo }}<span class="usuario-menu__perfil">{{ user.perfil }}</span></span>
+        </summary>
+        <div class="usuario-menu__panel">
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">Cerrar sesión</button>
+          </form>
+        </div>
+      </details>
+    </header>
+
+    <main class="contenido" id="contenido">
+      {% if messages %}
+      <div class="mensajes" role="status" aria-live="polite">
+        {% for mensaje in messages %}
+        <div class="alerta alerta-{{ mensaje.level_tag }}"{% if mensaje.level_tag == 'error' %} role="alert"{% endif %}>
+          <span class="alerta__texto">{{ mensaje }}</span>
+          <button class="alerta__cerrar" type="button" aria-label="Cerrar aviso">&times;</button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% block contenido %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endwith %}
+{% endblock %}
+<script>
+  (function () {
+    var app = document.getElementById("app");
+    var boton = document.getElementById("boton-menu");
+    function abrir(si) {
+      if (!app) { return; }
+      app.classList.toggle("menu-abierto", si);
+      document.body.classList.toggle("menu-abierto", si);
+      boton.setAttribute("aria-expanded", si ? "true" : "false");
+    }
+    if (boton) {
+      boton.addEventListener("click", function () { abrir(true); });
+      document.querySelectorAll("[data-cerrar-menu]").forEach(function (el) {
+        el.addEventListener("click", function () { abrir(false); });
+      });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") { abrir(false); } });
+      window.matchMedia("(min-width: 1024px)").addEventListener("change", function () { abrir(false); });
+    }
+
+    document.querySelectorAll(".alerta").forEach(function (aviso) {
+      function quitar() {
+        aviso.classList.add("alerta--saliendo");
+        setTimeout(function () { aviso.remove(); }, 300);
+      }
+      var cerrar = aviso.querySelector(".alerta__cerrar");
+      if (cerrar) { cerrar.addEventListener("click", quitar); }
+      if (aviso.classList.contains("alerta-success")) { setTimeout(quitar, 6000); }
+    });
+
+    var menuUsuario = document.querySelector(".usuario-menu");
+    if (menuUsuario) {
+      document.addEventListener("click", function (e) {
+        if (!menuUsuario.contains(e.target)) { menuUsuario.removeAttribute("open"); }
+      });
+    }
+  })();
+</script>
 </body>
 </html>

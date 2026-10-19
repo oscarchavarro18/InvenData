@@ -64,7 +64,7 @@ def test_login_y_pagina_de_inicio(client, gerente):
     assert client.login(username="gerente", password="ClaveSegura123")
     respuesta = client.get("/")
     assert respuesta.status_code == 200
-    assert "Entorno listo" in respuesta.content.decode()
+    assert "Dashboard" in respuesta.content.decode()
 
 
 def test_admin_solo_para_gerente(client, gerente, jefe_bodega):
@@ -74,3 +74,21 @@ def test_admin_solo_para_gerente(client, gerente, jefe_bodega):
     assert client.get("/admin/").status_code == 200
     assert client.get("/admin/accounts/usuario/").status_code == 200
     assert client.get("/admin/accounts/usuario/add/").status_code == 200
+
+
+def test_la_pantalla_de_ingreso_muestra_los_campos_con_estilo(client, db):
+    respuesta = client.get("/login/")
+    contenido = respuesta.content.decode()
+    assert respuesta.status_code == 200
+    assert 'class="form-control"' in contenido
+    assert "Ingresar" in contenido
+    assert 'class="menu"' not in contenido  # sin menú lateral antes de iniciar sesión
+
+
+def test_el_ingreso_conserva_la_pagina_pedida(client, gerente):
+    respuesta = client.post(
+        "/login/",
+        {"username": "gerente", "password": "ClaveSegura123", "next": "/recepcion/"},
+    )
+    assert respuesta.status_code == 302
+    assert respuesta["Location"] == "/recepcion/"

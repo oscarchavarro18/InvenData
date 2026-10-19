@@ -1,8 +1,88 @@
 {% extends "base.html" %}
+{% block titulo %}Dashboard · InvenData{% endblock %}
+{% block encabezado %}Dashboard{% endblock %}
 {% block contenido %}
-<h1 class="h3">Entorno listo</h1>
-<p class="text-muted">
-  Sesión iniciada como <strong>{{ user.nombre_completo }}</strong> ({{ user.perfil }}).
-  Los módulos M0 a M9 se construyen sobre esta base.
-</p>
+<div class="barra">
+  <p class="barra__texto">Bienvenido, {{ user.nombre_completo }}. Este es el estado de la bodega.</p>
+</div>
+
+<section class="indicadores" aria-label="Indicadores">
+  <div class="indicador">
+    <div class="indicador__etiqueta">Documentos abiertos</div>
+    <div class="indicador__valor">{{ documentos_abiertos }}</div>
+    <div class="indicador__nota">Recepciones en proceso</div>
+  </div>
+  <div class="indicador">
+    <div class="indicador__etiqueta">Existencia en bodega</div>
+    <div class="indicador__valor">{{ kg_en_bodega|floatformat:2 }} <small>kg</small></div>
+    <div class="indicador__nota">En todas las ubicaciones</div>
+  </div>
+  <div class="indicador">
+    <div class="indicador__etiqueta">Lotes con existencia</div>
+    <div class="indicador__valor">{{ lotes_con_existencia }}</div>
+    <div class="indicador__nota">Con producto disponible</div>
+  </div>
+  <div class="indicador">
+    <div class="indicador__etiqueta">Por vencer</div>
+    <div class="indicador__valor{% if n_por_vencer %} indicador__valor--critico{% endif %}">{{ n_por_vencer }}</div>
+    <div class="indicador__nota">Vencen en {{ dias_por_vencer }} días o menos</div>
+  </div>
+</section>
+
+<div class="dos-columnas">
+  <section class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2>Recepciones recientes</h2>
+      <a class="boton boton--claro boton--chico" href="{% url 'recepcion:documento_lista' %}">Ver todas</a>
+    </div>
+    <div class="tabla-caja">
+      <table class="tabla tabla--densa tabla--apilada">
+        <thead>
+          <tr><th>Documento</th><th>Proveedor</th><th>Fecha</th><th>Estado</th></tr>
+        </thead>
+        <tbody>
+          {% for documento in recientes %}
+          <tr>
+            <td><a class="tabla__principal" href="{% url 'recepcion:documento_detalle' documento.pk %}">{{ documento }}</a></td>
+            <td data-label="Proveedor">{{ documento.proveedor.razon_social }}</td>
+            <td data-label="Fecha">{{ documento.fecha|date:"d/m/Y" }}</td>
+            <td data-label="Estado">{% include "componentes/pill_documento.html" with estado=documento.estado %}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="tabla__vacia">Todavía no hay recepciones.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2>Próximos a vencer</h2>
+    </div>
+    <div class="tabla-caja">
+      <table class="tabla tabla--densa tabla--apilada">
+        <thead>
+          <tr><th>Lote</th><th>Producto</th><th class="num">Existencia</th><th>Vence</th></tr>
+        </thead>
+        <tbody>
+          {% for lote in por_vencer %}
+          <tr>
+            <td class="tabla__principal">{{ lote.codigo }}</td>
+            <td data-label="Producto">{{ lote.producto.nombre }}</td>
+            <td data-label="Existencia" class="num">{{ lote.kg|floatformat:2 }} kg</td>
+            <td data-label="Vence">
+              {% if lote.dias_restantes < 0 %}<span class="pill pill--rojo">Vencido</span>
+              {% elif lote.dias_restantes <= 2 %}<span class="pill pill--rojo">{{ lote.dias_restantes }} d</span>
+              {% else %}<span class="pill pill--ambar">{{ lote.dias_restantes }} d</span>{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="tabla__vacia">No hay lotes por vencer.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
 {% endblock %}

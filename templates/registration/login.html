@@ -1,33 +1,32 @@
 {% extends "base.html" %}
 {% block titulo %}Iniciar sesión · InvenData{% endblock %}
-{% block contenido %}
-<div class="row justify-content-center">
-  <div class="col-md-5 col-lg-4">
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <h1 class="h4 mb-3">Iniciar sesión</h1>
-        <form method="post" novalidate>
-          {% csrf_token %}
-          {% if form.errors %}
-          <div class="alert alert-danger py-2">Usuario o contraseña incorrectos, o usuario inactivo.</div>
-          {% endif %}
-          <div class="mb-3">
-            <label class="form-label" for="{{ form.username.id_for_label }}">Usuario</label>
-            {{ form.username }}
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="{{ form.password.id_for_label }}">Contraseña</label>
-            {{ form.password }}
-          </div>
-          <button class="btn btn-primary w-100" type="submit">Entrar</button>
-        </form>
-      </div>
+{% block cuerpo %}
+<main class="ingreso">
+  <div class="ingreso__tarjeta">
+    <div class="ingreso__marca">
+      <span class="marca__logo" aria-hidden="true">I</span>
+      <h1>InvenData</h1>
+      <p>Inventario y trazabilidad de producto</p>
     </div>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.errors %}
+      <div class="alerta alerta-error" role="alert">
+        <span class="alerta__texto">Usuario o contraseña incorrectos, o usuario inactivo.</span>
+      </div>
+      {% endif %}
+      <div class="campo">
+        <label class="etiqueta etiqueta--mayus" for="{{ form.username.id_for_label }}">Usuario</label>
+        {{ form.username }}
+      </div>
+      <div class="campo">
+        <label class="etiqueta etiqueta--mayus" for="{{ form.password.id_for_label }}">Contraseña</label>
+        {{ form.password }}
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="boton boton--bloque" type="submit">Ingresar</button>
+    </form>
+    <p class="ingreso__pie">Pid Consulting S.A.S. · Neiva, Huila</p>
   </div>
-</div>
-<script>
-  document.querySelectorAll("input[type=text], input[type=password]").forEach(function (el) {
-    el.classList.add("form-control");
-  });
-</script>
+</main>
 {% endblock %}
