@@ -11,6 +11,7 @@
     <div class="container">
       <a class="navbar-brand fw-semibold" href="{% url 'inicio' %}">InvenData</a>
       {% if user.is_authenticated %}
+      <a class="nav-link text-white-50 me-auto ms-4" href="{% url 'recepcion:documento_lista' %}">Recepción</a>
       <form method="post" action="{% url 'logout' %}" class="d-flex align-items-center gap-3 m-0">
         {% csrf_token %}
         <span class="text-white-50 small">{{ user.nombre_completo }} · {{ user.perfil }}</span>
