@@ -5,16 +5,18 @@ existencia cambia al cerrar el documento del proveedor (RF-17), no antes. Mientr
 documento esté ABIERTO se pueden crear lotes y pesar tandas; una vez cerrado, nada más.
 """
 
+from collections import defaultdict
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Count, Sum
 from django.utils import timezone
 
-from apps.inventario.models import EstadoProducto, Lote, OrigenLote
-from apps.maestros.models import TipoUbicacion
+from apps.inventario.models import EstadoProducto, Lote, OrigenLote, TipoMovimiento
+from apps.inventario.servicios import registrar_movimiento
+from apps.maestros.models import TipoUbicacion, Ubicacion
 from apps.recepcion.models import DocumentoProveedor, EstadoDocumento, Recepcion
 
 # Adonde puede llegar el producto recién recibido (DBML: túnel, sostenimiento o, para cortar
@@ -159,3 +161,76 @@ def peso_recibido(linea):
 def diferencia_de_linea(linea):
     """Lo declarado menos lo pesado: la merma de recepción, en vivo antes de cerrar (RF-15)."""
     return linea.cantidad - peso_recibido(linea)
+
+
+@transaction.atomic
+def eliminar_lote_sin_pesadas(*, lote):
+    """Borra un lote de recepción creado por error que todavía no tiene ninguna pesada."""
+    if lote.origen != OrigenLote.RECEPCION or lote.documento_proveedor_linea_id is None:
+        raise RecepcionInvalida("Solo se eliminan lotes que vienen de una recepción.")
+    _documento_abierto(lote.documento_proveedor_linea.documento_proveedor_id)
+    if Recepcion.objects.filter(lote=lote).exists():
+        raise RecepcionInvalida("El lote ya tiene pesadas: no se puede eliminar.")
+    lote.delete()
+
+
+@transaction.atomic
+def cerrar_documento(*, documento, usuario):
+    """Cierra el documento del proveedor y afecta las existencias (RF-15, RF-17).
+
+    Todo ocurre en una sola transacción: si algo falla, el documento sigue abierto y no
+    queda ningún movimiento. Por cada lote y ubicación de destino se registra un movimiento
+    RECEPCION con la suma de sus tandas, y cada línea congela lo recibido y la diferencia
+    contra lo declarado. Devuelve los movimientos creados.
+    """
+    documento = _documento_abierto(documento.pk)
+    lineas = list(documento.lineas.all())
+    if not lineas:
+        raise RecepcionInvalida("El documento no tiene líneas.")
+
+    del_documento = Lote.objects.filter(documento_proveedor_linea__documento_proveedor=documento)
+    lotes = list(del_documento.annotate(n_tandas=Count("tandas")).order_by("codigo"))
+    sin_pesadas = [lote.codigo for lote in lotes if lote.n_tandas == 0]
+    if sin_pesadas:
+        raise RecepcionInvalida(
+            f"Hay lotes sin pesadas: {', '.join(sin_pesadas)}. "
+            "Pese cada lote o elimínelo antes de cerrar."
+        )
+
+    # Lo pesado, sumado por lote y por ubicación de destino: un movimiento por cada par.
+    grupos = list(
+        Recepcion.objects.filter(lote__in=del_documento)
+        .values("lote_id", "ubicacion_destino_id")
+        .annotate(total=Sum("peso_neto"))
+        .order_by("lote_id", "ubicacion_destino_id")
+    )
+    if not grupos:
+        raise RecepcionInvalida("No se puede cerrar un documento sin ninguna pesada.")
+
+    lote_por_id = {lote.pk: lote for lote in lotes}
+    ubicaciones = Ubicacion.objects.in_bulk({g["ubicacion_destino_id"] for g in grupos})
+    recibido_por_linea = defaultdict(lambda: CERO)
+    movimientos = []
+    for grupo in grupos:
+        lote = lote_por_id[grupo["lote_id"]]
+        recibido_por_linea[lote.documento_proveedor_linea_id] += grupo["total"]
+        movimientos.append(
+            registrar_movimiento(
+                lote=lote,
+                tipo=TipoMovimiento.RECEPCION,
+                cantidad=grupo["total"],
+                usuario=usuario,
+                ubicacion_destino=ubicaciones[grupo["ubicacion_destino_id"]],
+            )
+        )
+
+    # La foto de lo recibido queda fija: aunque después se reverse un movimiento, la
+    # diferencia de recepción sigue siendo lo que se midió ese día.
+    for linea in lineas:
+        linea.cantidad_recibida = recibido_por_linea[linea.pk]
+        linea.diferencia_kg = linea.cantidad - linea.cantidad_recibida
+        linea.save(update_fields=["cantidad_recibida", "diferencia_kg"])
+
+    documento.estado = EstadoDocumento.CERRADO
+    documento.save(update_fields=["estado"])
+    return movimientos

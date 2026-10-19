@@ -28,7 +28,7 @@
 | `conteo` | M8 | conteo_fisico, conteo_fisico_detalle |
 | `reportes` | M9 | (sin tablas: consulta lo anterior) |
 
-✔ = implementada. Total del modelo: 41 tablas. Implementadas hasta ahora: 17 (M1 completo: perfil, usuario, los maestros, auditoria y evidencia; M3 núcleo: lote, movimiento y existencia; M2 en curso: documento_proveedor, documento_proveedor_linea y recepcion, las tandas de pesada).
+✔ = implementada. Total del modelo: 41 tablas. Implementadas hasta ahora: 17 (M1 completo: perfil, usuario, los maestros, auditoria y evidencia; M3 núcleo: lote, movimiento y existencia; M2 núcleo: documento_proveedor, documento_proveedor_linea y recepcion, con pesadas y cierre del documento).
 
 ## Convenciones
 
