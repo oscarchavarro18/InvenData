@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 
 from apps.core.permisos import operador_de_recepcion
 from apps.inventario.models import Lote
-from apps.recepcion.forms import DocumentoForm, LineaForm
+from apps.recepcion.forms import DocumentoForm, LineaForm, LoteForm, TandaForm
 from apps.recepcion.models import (
     DocumentoProveedor,
     DocumentoProveedorLinea,
@@ -25,7 +25,10 @@ from apps.recepcion.servicios import (
     RecepcionInvalida,
     agregar_linea,
     crear_documento,
+    crear_lote_recepcion,
     eliminar_linea,
+    eliminar_lote_sin_pesadas,
+    registrar_pesada,
 )
 
 
@@ -51,11 +54,14 @@ def documento_crear(request):
     return render(request, "recepcion/documento_form.html", {"form": form})
 
 
-def _filas_del_documento(documento):
+def _filas_del_documento(documento, con_formularios=False):
     """Una fila por línea, con sus lotes y tandas y lo recibido contra lo declarado.
 
     Con el documento abierto, lo recibido y la diferencia se calculan en vivo; ya cerrado,
     se muestran los valores congelados al cierre (RF-15).
+    Con `con_formularios`, cada línea trae su formulario de nuevo lote (el de pesada se dibuja
+    a mano en la plantilla con las mismas listas para todos los lotes, así no consulta la base
+    una vez por lote).
     """
     tandas = Recepcion.objects.select_related("tipo_embalaje", "ubicacion_destino")
     lotes = Lote.objects.order_by("codigo").prefetch_related(Prefetch("tandas", queryset=tandas))
@@ -83,6 +89,8 @@ def _filas_del_documento(documento):
             "recibido": recibido,
             "diferencia": diferencia,
         }
+        if con_formularios:
+            fila["lote_form"] = LoteForm(auto_id=f"id_%s_l{linea.pk}")
         filas.append(fila)
     return filas
 
@@ -92,12 +100,19 @@ def documento_detalle(request, pk):
     documento = get_object_or_404(DocumentoProveedor.objects.select_related("proveedor"), pk=pk)
     abierto = documento.estado == EstadoDocumento.ABIERTO
     puede_operar = abierto and request.user.puede_operar_recepcion
+    filas = _filas_del_documento(documento, con_formularios=puede_operar)
     contexto = {
         "documento": documento,
-        "filas": _filas_del_documento(documento),
+        "filas": filas,
         "puede_operar": puede_operar,
         "linea_form": LineaForm() if puede_operar else None,
     }
+    if puede_operar:
+        contexto.update(
+            embalajes=TandaForm.base_fields["tipo_embalaje"].queryset,
+            destinos=TandaForm.base_fields["ubicacion_destino"].queryset,
+        )
+        contexto["taras"] = {str(e.pk): str(e.peso_tara) for e in contexto["embalajes"]}
     return render(request, "recepcion/documento_detalle.html", contexto)
 
 
@@ -153,3 +168,46 @@ def linea_eliminar(request, pk):
     else:
         messages.success(request, "Línea eliminada.")
     return _volver(linea.documento_proveedor_id)
+
+
+@operador_de_recepcion
+@require_POST
+def lote_crear(request, pk):
+    linea = get_object_or_404(DocumentoProveedorLinea, pk=pk)
+    _aplicar(
+        request,
+        LoteForm(request.POST),
+        lambda **datos: crear_lote_recepcion(linea=linea, **datos),
+        "Lote creado. Registre ahora sus pesadas.",
+    )
+    return _volver(linea.documento_proveedor_id, f"linea-{linea.pk}")
+
+
+@operador_de_recepcion
+@require_POST
+def lote_eliminar(request, pk):
+    lote = get_object_or_404(Lote.objects.select_related("documento_proveedor_linea"), pk=pk)
+    linea = lote.documento_proveedor_linea
+    try:
+        eliminar_lote_sin_pesadas(lote=lote)
+    except RecepcionInvalida as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, "Lote eliminado.")
+    return _volver(linea.documento_proveedor_id, f"linea-{linea.pk}")
+
+
+@operador_de_recepcion
+@require_POST
+def pesada_registrar(request, pk):
+    lote = get_object_or_404(Lote.objects.select_related("documento_proveedor_linea"), pk=pk)
+    if lote.documento_proveedor_linea_id is None:
+        messages.error(request, "Solo se pesan lotes que vienen de una recepción.")
+        return redirect("recepcion:documento_lista")
+    _aplicar(
+        request,
+        TandaForm(request.POST),
+        lambda **datos: registrar_pesada(lote=lote, usuario=request.user, **datos),
+        f"Pesada registrada en el lote {lote.codigo}.",
+    )
+    return _volver(lote.documento_proveedor_linea.documento_proveedor_id, f"lote-{lote.pk}")

@@ -55,6 +55,12 @@
         <span class="pill pill--azul">{{ item.lote.get_estado_producto_display }}</span>
         <span>Vence {{ item.lote.fecha_vencimiento|date:"d/m/Y" }}</span>
         <strong>{{ item.total }} kg netos</strong>
+        {% if puede_operar and not item.tandas %}
+        <form method="post" action="{% url 'recepcion:lote_eliminar' item.lote.pk %}" data-confirmar="¿Eliminar este lote?">
+          {% csrf_token %}
+          <button class="boton boton--peligro boton--chico" type="submit">Eliminar lote</button>
+        </form>
+        {% endif %}
       </span>
     </div>
     {% if item.tandas %}
@@ -87,11 +93,57 @@
     {% else %}
     <p class="vacio vacio--chico">Este lote todavía no tiene pesadas.</p>
     {% endif %}
+    {% if puede_operar %}
+    <form method="post" action="{% url 'recepcion:pesada_registrar' item.lote.pk %}" class="form-tanda" data-tanda>
+      {% csrf_token %}
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="emb-{{ item.lote.pk }}">Embalaje</label>
+        <select class="form-select" name="tipo_embalaje" id="emb-{{ item.lote.pk }}" required>
+          {% for e in embalajes %}<option value="{{ e.pk }}">{{ e.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="cant-{{ item.lote.pk }}">Cant. de embalajes</label>
+        <input class="form-control" type="number" inputmode="numeric" name="cantidad_embalajes" id="cant-{{ item.lote.pk }}" value="1" min="0" step="1" required>
+      </div>
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="bruto-{{ item.lote.pk }}">Peso bruto (kg)</label>
+        <input class="form-control" type="number" inputmode="decimal" name="peso_bruto" id="bruto-{{ item.lote.pk }}" min="0.01" step="0.01" required>
+      </div>
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="temp-{{ item.lote.pk }}">Temp. (°C)</label>
+        <input class="form-control" type="number" inputmode="decimal" name="temperatura" id="temp-{{ item.lote.pk }}" step="0.01" required>
+      </div>
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="dest-{{ item.lote.pk }}">Destino</label>
+        <select class="form-select" name="ubicacion_destino" id="dest-{{ item.lote.pk }}" required>
+          {% for u in destinos %}<option value="{{ u.pk }}">{{ u.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-tanda__pie">
+        <span class="form-tanda__neto">Neto estimado: <strong data-neto>—</strong></span>
+        <button class="boton boton--chico" type="submit">Registrar pesada</button>
+      </div>
+    </form>
+    {% endif %}
   </div>
   {% empty %}
   <p class="vacio">Esta línea todavía no tiene lotes.</p>
   {% endfor %}
 
+  {% if puede_operar %}
+  <form method="post" action="{% url 'recepcion:lote_crear' fila.linea.pk %}" class="form-lote">
+    {% csrf_token %}
+    <strong class="form-lote__titulo">Nuevo lote</strong>
+    {% for campo in fila.lote_form %}
+    <div class="campo">
+      <label class="etiqueta etiqueta--chica" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      {{ campo }}
+    </div>
+    {% endfor %}
+    <button class="boton boton--claro boton--chico" type="submit">Crear lote</button>
+  </form>
+  {% endif %}
 </section>
 {% empty %}
 <section class="tarjeta"><p class="vacio">Este documento no tiene líneas.</p></section>
@@ -118,6 +170,31 @@
 {% endif %}
 
 
+{% if puede_operar %}
+{{ taras|json_script:"taras" }}
+<script>
+  (function () {
+    var taras = JSON.parse(document.getElementById("taras").textContent);
+    document.querySelectorAll("[data-tanda]").forEach(function (form) {
+      var embalaje = form.querySelector("[name=tipo_embalaje]");
+      var cantidad = form.querySelector("[name=cantidad_embalajes]");
+      var bruto = form.querySelector("[name=peso_bruto]");
+      var salida = form.querySelector("[data-neto]");
+      function calcular() {
+        var tara = parseFloat(taras[embalaje.value]);
+        var b = parseFloat(bruto.value);
+        var c = parseInt(cantidad.value, 10);
+        if (isNaN(tara) || isNaN(b) || isNaN(c)) { salida.textContent = "—"; return; }
+        var neto = b - tara * c;
+        salida.textContent = neto.toFixed(2).replace(".", ",") + " kg";
+        salida.classList.toggle("neto--malo", neto <= 0);
+      }
+      [embalaje, cantidad, bruto].forEach(function (el) { el.addEventListener("input", calcular); });
+      calcular();
+    });
+  })();
+</script>
+{% endif %}
 <script>
   document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
     form.addEventListener("submit", function (e) {
