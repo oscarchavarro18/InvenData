@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titulo %}Productos · InvenData{% endblock %}
+{% block encabezado %}Productos{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Catálogo de productos y existencia actual de cada uno.</p>
+  <div class="barra__acciones">
+    {% if user.es_gerente %}<a class="boton" href="{% url 'maestros:producto_crear' %}">Nuevo producto</a>{% endif %}
+  </div>
+</div>
+<div class="tarjeta">
+  <form method="get" class="filtros" role="search">
+    <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Buscar por nombre, código o categoría" aria-label="Buscar producto">
+    <button class="boton boton--claro" type="submit">Buscar</button>
+    {% if q %}<a class="boton boton--claro" href="{% url 'maestros:producto_lista' %}">Limpiar</a>{% endif %}
+  </form>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Producto</th>
+          <th>Categoría</th>
+          <th>Unidad</th>
+          <th class="num">Existencia</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for producto in pagina %}
+        <tr>
+          <td class="tabla__principal">{{ producto.codigo }}</td>
+          <td data-label="Producto">
+            {{ producto.nombre }}
+            {% if producto.presentacion %}<span class="tabla__secundario">{{ producto.presentacion }}</span>{% endif %}
+          </td>
+          <td data-label="Categoría">{{ producto.categoria.nombre }}</td>
+          <td data-label="Unidad">{{ producto.get_unidad_medida_display }}</td>
+          <td data-label="Existencia" class="num">{{ producto.existencia|default_if_none:0|floatformat:2 }} kg</td>
+          <td data-label="Estado">
+            {% if producto.activo %}<span class="pill pill--verde">Activo</span>{% else %}<span class="pill pill--gris">Inactivo</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="tabla__vacia">{% if q %}Ningún producto coincide con la búsqueda.{% else %}Todavía no hay productos.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}

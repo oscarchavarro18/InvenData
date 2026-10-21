@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block titulo %}Configuración · InvenData{% endblock %}
+{% block encabezado %}Configuración{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Catálogos con los que opera la bodega.</p>
+  <div class="barra__acciones">
+    {% if user.es_gerente %}<a class="boton boton--claro" href="/admin/">Administrar catálogos y usuarios</a>{% endif %}
+  </div>
+</div>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Ubicaciones</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--compacta tabla--apilada">
+      <thead><tr><th>Código</th><th>Nombre</th><th>Tipo</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for u in ubicaciones %}
+        <tr>
+          <td class="tabla__principal">{{ u.codigo }}</td>
+          <td data-label="Nombre">{{ u.nombre }}</td>
+          <td data-label="Tipo">{{ u.get_tipo_display }}</td>
+          <td data-label="Estado">{% if u.activo %}<span class="pill pill--verde">Activa</span>{% else %}<span class="pill pill--gris">Inactiva</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="tabla__vacia">No hay ubicaciones.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="dos-columnas">
+  <section class="tarjeta">
+    <div class="tarjeta__cabeza"><h2>Tipos de embalaje</h2></div>
+    <div class="tabla-caja">
+      <table class="tabla tabla--compacta tabla--apilada">
+        <thead><tr><th>Nombre</th><th class="num">Tara (kg)</th><th>Estado</th></tr></thead>
+        <tbody>
+          {% for e in embalajes %}
+          <tr>
+            <td class="tabla__principal">{{ e.nombre }}</td>
+            <td data-label="Tara (kg)" class="num">{{ e.peso_tara }}</td>
+            <td data-label="Estado">{% if e.activo %}<span class="pill pill--verde">Activo</span>{% else %}<span class="pill pill--gris">Inactivo</span>{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="tabla__vacia">No hay tipos de embalaje.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="tarjeta">
+    <div class="tarjeta__cabeza"><h2>Parámetros del sistema</h2></div>
+    <div class="tabla-caja">
+      <table class="tabla tabla--compacta tabla--apilada">
+        <thead><tr><th>Clave</th><th>Valor</th></tr></thead>
+        <tbody>
+          {% for p in parametros %}
+          <tr>
+            <td class="tabla__principal">{{ p.clave }}{% if p.descripcion %}<span class="tabla__secundario">{{ p.descripcion }}</span>{% endif %}</td>
+            <td data-label="Valor">{{ p.valor }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="2" class="tabla__vacia">No hay parámetros definidos.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}
