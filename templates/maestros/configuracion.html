@@ -32,19 +32,31 @@
 
 <div class="dos-columnas">
   <section class="tarjeta">
-    <div class="tarjeta__cabeza"><h2>Tipos de embalaje</h2></div>
+    <div class="tarjeta__cabeza">
+      <h2>Tipos de embalaje</h2>
+      {% if user.es_gerente %}<a class="boton boton--claro boton--chico" href="{% url 'maestros:embalaje_crear' %}">Nuevo tipo</a>{% endif %}
+    </div>
     <div class="tabla-caja">
       <table class="tabla tabla--compacta tabla--apilada">
-        <thead><tr><th>Nombre</th><th class="num">Tara (kg)</th><th>Estado</th></tr></thead>
+        <thead><tr><th>Nombre</th><th class="num">Tara (kg)</th><th>Estado</th>{% if user.es_gerente %}<th></th>{% endif %}</tr></thead>
         <tbody>
           {% for e in embalajes %}
           <tr>
             <td class="tabla__principal">{{ e.nombre }}</td>
             <td data-label="Tara (kg)" class="num">{{ e.peso_tara }}</td>
             <td data-label="Estado">{% if e.activo %}<span class="pill pill--verde">Activo</span>{% else %}<span class="pill pill--gris">Inactivo</span>{% endif %}</td>
+            {% if user.es_gerente %}
+            <td class="tabla__acciones">
+              <a class="boton boton--claro boton--chico" href="{% url 'maestros:embalaje_editar' e.pk %}">Editar</a>
+              <form method="post" action="{% url 'maestros:embalaje_estado' e.pk %}" class="en-linea">
+                {% csrf_token %}
+                <button class="boton boton--claro boton--chico" type="submit">{% if e.activo %}Desactivar{% else %}Activar{% endif %}</button>
+              </form>
+            </td>
+            {% endif %}
           </tr>
           {% empty %}
-          <tr><td colspan="3" class="tabla__vacia">No hay tipos de embalaje.</td></tr>
+          <tr><td colspan="4" class="tabla__vacia">No hay tipos de embalaje.</td></tr>
           {% endfor %}
         </tbody>
       </table>

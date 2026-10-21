@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titulo %}{% if embalaje %}Editar embalaje{% else %}Nuevo tipo de embalaje{% endif %} · InvenData{% endblock %}
+{% block encabezado %}{% if embalaje %}Editar tipo de embalaje{% else %}Nuevo tipo de embalaje{% endif %}{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'maestros:configuracion' %}">← Volver a configuración</a>
+<form method="post" novalidate class="tarjeta tarjeta--angosta">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>Datos del embalaje</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      <div class="campo{% if campo.name == 'nombre' %} campo--ancho{% endif %}">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <p class="campo__ayuda">Con tara 0 el producto se pesa sin embalaje. Cambiar la tara solo afecta las pesadas nuevas: las ya registradas conservan su peso neto.</p>
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{% url 'maestros:configuracion' %}">Cancelar</a>
+      <button class="boton" type="submit">Guardar embalaje</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

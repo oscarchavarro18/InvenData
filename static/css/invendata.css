@@ -1323,3 +1323,16 @@ svg {
     break-inside: avoid;
   }
 }
+
+/* Acciones por fila en tablas de configuración */
+.tabla__acciones {
+  white-space: nowrap;
+  text-align: right;
+}
+.tabla__acciones .boton + .en-linea {
+  margin-left: 6px;
+}
+.en-linea {
+  display: inline;
+  margin: 0;
+}
