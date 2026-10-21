@@ -6,8 +6,8 @@ from decimal import Decimal
 import pytest
 from django.urls import reverse
 
-from apps.inventario.models import Existencia, Lote
-from apps.recepcion.models import Recepcion
+from apps.inventario.models import Existencia, Lote, Movimiento
+from apps.recepcion.models import DocumentoProveedor, Recepcion
 from apps.recepcion.servicios import crear_lote_recepcion, registrar_pesada
 
 
@@ -151,6 +151,93 @@ def test_el_destino_debe_ser_una_ubicacion_de_recepcion(cliente, lote, canastill
 
 def test_la_pesada_solo_acepta_post(cliente, lote):
     assert cliente.get(reverse("recepcion:pesada_registrar", args=[lote.pk])).status_code == 405
+
+
+# --- Cerrar documento -------------------------------------------------------------
+
+
+@pytest.fixture
+def pesado(lote, canastilla, tunel, jefe_bodega):
+    """El lote de recepción con una pesada de 100 kg netos hacia el túnel."""
+    registrar_pesada(
+        lote=lote,
+        tipo_embalaje=canastilla,
+        cantidad_embalajes=10,
+        peso_bruto=Decimal("125.00"),
+        temperatura=Decimal("3.5"),
+        ubicacion_destino=tunel,
+        usuario=jefe_bodega,
+    )
+    return lote
+
+
+def test_cerrar_el_documento_crea_la_existencia(cliente, linea, pesado, tunel):
+    respuesta = cliente.post(
+        reverse("recepcion:documento_cerrar", args=[linea.documento_proveedor_id]), follow=True
+    )
+    assert DocumentoProveedor.objects.get().estado == "CERRADO"
+    assert Existencia.objects.get().cantidad == Decimal("100.00")
+    assert Movimiento.objects.get().tipo == "RECEPCION"
+    assert any("Documento cerrado" in str(m) for m in respuesta.context["messages"])
+    assert "Ver inventario" in respuesta.content.decode()
+
+
+def test_no_se_cierra_con_un_lote_sin_pesadas(cliente, linea, pesado, datos_lote):
+    crear_lote_recepcion(linea=linea, estado_producto="FRESCO", fecha_vencimiento=date(2026, 12, 9))
+    respuesta = cliente.post(
+        reverse("recepcion:documento_cerrar", args=[linea.documento_proveedor_id]), follow=True
+    )
+    assert DocumentoProveedor.objects.get().estado == "ABIERTO"
+    assert Existencia.objects.count() == 0
+    assert any("sin pesadas" in str(m) for m in respuesta.context["messages"])
+
+
+def test_el_detalle_deshabilita_el_cierre_mientras_falten_pesadas(cliente, linea, lote):
+    contenido = cliente.get(_detalle(linea)).content.decode()
+    assert "no tiene pesadas" in contenido
+    assert "disabled" in contenido.split("Cerrar documento</button>")[0][-120:]
+
+
+def test_el_detalle_habilita_el_cierre_cuando_todo_esta_pesado(cliente, linea, pesado):
+    contenido = cliente.get(_detalle(linea)).content.decode()
+    boton = contenido.split("Cerrar documento</button>")[0][-120:]
+    assert "disabled" not in boton
+
+
+def test_avisa_de_las_lineas_sin_lotes(cliente, linea, pesado, producto):
+    from apps.maestros.models import Producto
+
+    otro = Producto.objects.create(
+        codigo="X-1", nombre="Otro", unidad_medida="KG", categoria=producto.categoria
+    )
+    cliente.post(
+        reverse("recepcion:linea_agregar", args=[linea.documento_proveedor_id]),
+        {"producto": otro.pk, "cantidad": "10"},
+    )
+    contenido = cliente.get(_detalle(linea)).content.decode()
+    assert "Otro no tiene lotes" in contenido
+
+
+def test_un_documento_cerrado_no_admite_mas_cambios(cliente, linea, pesado, canastilla, tunel):
+    cliente.post(reverse("recepcion:documento_cerrar", args=[linea.documento_proveedor_id]))
+    respuesta = cliente.post(
+        reverse("recepcion:pesada_registrar", args=[pesado.pk]),
+        _datos_pesada(canastilla, tunel),
+        follow=True,
+    )
+    assert Recepcion.objects.count() == 1
+    assert any("ya está cerrado" in str(m) for m in respuesta.context["messages"])
+    contenido = cliente.get(_detalle(linea)).content.decode()
+    assert "Registrar pesada" not in contenido
+    assert "Cerrar documento</button>" not in contenido
+
+
+def test_cerrar_dos_veces_avisa_sin_duplicar_movimientos(cliente, linea, pesado):
+    url = reverse("recepcion:documento_cerrar", args=[linea.documento_proveedor_id])
+    cliente.post(url)
+    respuesta = cliente.post(url, follow=True)
+    assert Movimiento.objects.count() == 1
+    assert any("ya está cerrado" in str(m) for m in respuesta.context["messages"])
 
 
 def test_los_formularios_de_pesada_no_consultan_la_base_por_cada_lote(

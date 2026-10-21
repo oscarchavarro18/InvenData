@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block titulo %}Inventario · InvenData{% endblock %}
+{% block encabezado %}Inventario{% endblock %}
+{% block contenido %}
+<section class="indicadores" aria-label="Indicadores">
+  <div class="indicador">
+    <div class="indicador__etiqueta">Existencia en bodega</div>
+    <div class="indicador__valor">{{ kg_en_bodega|floatformat:2 }} <small>kg</small></div>
+  </div>
+  <div class="indicador">
+    <div class="indicador__etiqueta">Lotes con existencia</div>
+    <div class="indicador__valor">{{ lotes_con_existencia }}</div>
+  </div>
+  <div class="indicador">
+    <div class="indicador__etiqueta">Por vencer</div>
+    <div class="indicador__valor{% if n_por_vencer %} indicador__valor--critico{% endif %}">{{ n_por_vencer }}</div>
+    <div class="indicador__nota">Vencen en {{ dias_por_vencer }} días o menos</div>
+  </div>
+</section>
+
+<div class="tarjeta">
+  <form method="get" class="filtros" role="search">
+    <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Buscar por producto o lote" aria-label="Buscar por producto o lote">
+    <select class="form-select" name="ubicacion" aria-label="Filtrar por ubicación">
+      <option value="">Todas las ubicaciones</option>
+      {% for u in ubicaciones %}
+      <option value="{{ u.pk }}"{% if ubicacion == u.pk|stringformat:"s" %} selected{% endif %}>{{ u.nombre }}</option>
+      {% endfor %}
+    </select>
+    <button class="boton boton--claro" type="submit">Filtrar</button>
+    {% if q or ubicacion %}<a class="boton boton--claro" href="{% url 'inventario:existencias' %}">Limpiar</a>{% endif %}
+  </form>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr>
+          <th>Lote</th>
+          <th>Producto</th>
+          <th>Ubicación</th>
+          <th>Estado</th>
+          <th class="num">Cantidad</th>
+          <th>Vence</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in pagina %}
+        <tr>
+          <td class="tabla__principal">{{ fila.lote.codigo }}</td>
+          <td data-label="Producto">{{ fila.lote.producto.nombre }}<span class="tabla__secundario">{{ fila.lote.producto.codigo }}</span></td>
+          <td data-label="Ubicación">{{ fila.ubicacion.nombre }}</td>
+          <td data-label="Estado"><span class="pill pill--azul">{{ fila.lote.get_estado_producto_display }}</span></td>
+          <td data-label="Cantidad" class="num">{{ fila.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Vence">
+            {{ fila.lote.fecha_vencimiento|date:"d/m/Y" }}
+            {% if fila.lote.fecha_vencimiento < hoy %}<span class="pill pill--rojo">Vencido</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="tabla__vacia">{% if q or ubicacion %}Ninguna existencia coincide con el filtro.{% else %}Todavía no hay producto en bodega. Aparecerá aquí al cerrar una recepción.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}

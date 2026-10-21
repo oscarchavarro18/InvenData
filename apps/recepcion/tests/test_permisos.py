@@ -27,6 +27,7 @@ ACCIONES = [
     ("recepcion:lote_crear", True),
     ("recepcion:lote_eliminar", True),
     ("recepcion:pesada_registrar", True),
+    ("recepcion:documento_cerrar", True),
 ]
 
 
@@ -49,6 +50,7 @@ def test_consulta_puede_leer_pero_no_ve_botones_de_accion(client, linea, lote):
         "Quitar",
         "Registrar pesada",
         "Nuevo lote",
+        "Cerrar documento</button>",
     ]
     for texto in textos:
         assert texto not in contenido
