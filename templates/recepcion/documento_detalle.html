@@ -169,6 +169,27 @@
 </section>
 {% endif %}
 
+{% if puede_operar %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Cerrar documento</h2></div>
+  <div class="tarjeta__cuerpo">
+    <p class="barra__texto">Al cerrar, lo pesado entra a la existencia de su ubicación de destino, las diferencias contra lo declarado quedan fijas y el documento no admite más cambios.</p>
+    {% for aviso in avisos_cierre %}<div class="alerta alerta-warning"><span class="alerta__texto">{{ aviso }}</span></div>{% endfor %}
+    {% for motivo in impiden_cierre %}<div class="alerta alerta-error"><span class="alerta__texto">{{ motivo }}</span></div>{% endfor %}
+    <form method="post" action="{% url 'recepcion:documento_cerrar' documento.pk %}" data-confirmar="¿Cerrar el documento {{ documento }}? Esta acción no se puede deshacer.">
+      {% csrf_token %}
+      <button class="boton" type="submit"{% if impiden_cierre or not filas %} disabled{% endif %}>Cerrar documento</button>
+    </form>
+  </div>
+</section>
+{% elif documento.estado == "CERRADO" %}
+<section class="tarjeta">
+  <div class="tarjeta__cuerpo">
+    <p class="barra__texto">Documento cerrado: el producto recibido ya forma parte de la existencia.</p>
+    <a class="boton boton--claro" href="{% url 'inventario:existencias' %}">Ver inventario</a>
+  </div>
+</section>
+{% endif %}
 
 {% if puede_operar %}
 {{ taras|json_script:"taras" }}

@@ -27,6 +27,7 @@ from apps.recepcion.servicios import (
     CERO,
     RecepcionInvalida,
     agregar_linea,
+    cerrar_documento,
     crear_documento,
     crear_lote_recepcion,
     eliminar_linea,
@@ -131,6 +132,21 @@ def _filas_del_documento(documento, con_formularios=False):
     return filas
 
 
+def _pendientes_de_cierre(filas):
+    """Lo que conviene revisar antes de cerrar: (impiden, avisan)."""
+    impiden, avisan = [], []
+    for fila in filas:
+        nombre = fila["linea"].producto.nombre
+        if not fila["lotes"]:
+            avisan.append(f"{nombre} no tiene lotes: se cerrará con 0 kg recibidos.")
+        for item in fila["lotes"]:
+            if not item["tandas"]:
+                impiden.append(f"El lote {item['lote'].codigo} no tiene pesadas.")
+    if filas and all(not f["lotes"] for f in filas):
+        impiden.append("Todavía no hay ninguna pesada registrada.")
+    return impiden, avisan
+
+
 @login_required
 def documento_detalle(request, pk):
     documento = get_object_or_404(DocumentoProveedor.objects.select_related("proveedor"), pk=pk)
@@ -149,6 +165,9 @@ def documento_detalle(request, pk):
             destinos=TandaForm.base_fields["ubicacion_destino"].queryset,
         )
         contexto["taras"] = {str(e.pk): str(e.peso_tara) for e in contexto["embalajes"]}
+    if puede_operar:
+        impiden, avisan = _pendientes_de_cierre(filas)
+        contexto.update(impiden_cierre=impiden, avisos_cierre=avisan)
     return render(request, "recepcion/documento_detalle.html", contexto)
 
 
@@ -257,3 +276,24 @@ def pesada_registrar(request, pk):
         f"Pesada registrada en el lote {lote.codigo}.",
     )
     return _volver(lote.documento_proveedor_linea.documento_proveedor_id, f"lote-{lote.pk}")
+
+
+@operador_de_recepcion
+@require_POST
+def documento_cerrar(request, pk):
+    documento = get_object_or_404(DocumentoProveedor, pk=pk)
+    anterior = instantanea(documento)
+    try:
+        with transaction.atomic():
+            movimientos = cerrar_documento(documento=documento, usuario=request.user)
+            documento.refresh_from_db()
+            _registrar(request, documento, AccionAuditoria.MODIFICAR, anterior=anterior)
+    except RecepcionInvalida as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(
+            request,
+            f"Documento cerrado. Se registraron {len(movimientos)} movimientos de recepción "
+            "y el producto ya está en la existencia.",
+        )
+    return _volver(documento.pk)

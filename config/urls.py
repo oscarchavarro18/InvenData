@@ -9,5 +9,6 @@ urlpatterns = [
     path("login/", auth_views.LoginView.as_view(authentication_form=IngresoForm), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("recepcion/", include("apps.recepcion.urls")),
+    path("inventario/", include("apps.inventario.urls")),
     path("", include("apps.core.urls")),
 ]
