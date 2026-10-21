@@ -124,6 +124,7 @@ def test_el_detalle_no_hace_consultas_de_mas(
         pesar(otro)
         pesar(otro)
     url = reverse("recepcion:documento_detalle", args=[linea.documento_proveedor_id])
-    # Sesión, usuario, documento, líneas, lotes y tandas: no crece con la cantidad de lotes.
-    with django_assert_max_num_queries(8):
+    # Sesión, usuario y perfil, documento, líneas, lotes y tandas, más las listas de los
+    # formularios (productos, embalajes, destinos): no crece con la cantidad de lotes.
+    with django_assert_max_num_queries(13):
         assert cliente.get(url).status_code == 200
