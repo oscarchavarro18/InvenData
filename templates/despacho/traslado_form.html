@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block titulo %}Nuevo traslado · InvenData{% endblock %}
+{% block encabezado %}{% if anterior %}Corregir y reenviar {{ anterior.consecutivo }}{% else %}Nuevo traslado a punto de venta{% endif %}{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% if anterior %}{% url 'despacho:traslado_detalle' anterior.pk %}{% else %}{% url 'despacho:traslado_lista' %}{% endif %}">← Volver</a>
+<form method="post" novalidate class="tarjeta" data-traslado>
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>Datos del envío</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if anterior %}
+    <div class="alerta alerta-info"><span class="alerta__texto">Reenvío corregido del traslado {{ anterior.consecutivo }}, que fue rechazado. Quedará enlazado a él.</span></div>
+    {% endif %}
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if origen %}
+  {{ formset.management_form }}
+  {% if formset.non_form_errors %}
+  <div class="tarjeta__cuerpo"><div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ formset.non_form_errors|join:" " }}</span></div></div>
+  {% endif %}
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada tabla--formulario">
+      <thead><tr><th>Lote disponible en {{ origen.nombre }}</th><th>Cantidad (kg)</th></tr></thead>
+      <tbody>
+        {% for linea in formset %}
+        <tr>
+          <td data-label="Lote">{{ linea.candidato }}{% for error in linea.candidato.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}</td>
+          <td data-label="Cantidad (kg)">{{ linea.cantidad }}{% for error in linea.cantidad.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tarjeta__cuerpo">
+    <p class="campo__ayuda">Solo aparece lo disponible: la existencia menos lo apartado en pedidos y en otros traslados sin aceptar. Lo enviado queda apartado hasta que el punto de venta decida.</p>
+    <div class="formulario-pie"><button class="boton" type="submit">Enviar traslado</button></div>
+  </div>
+  {% else %}
+  <div class="tarjeta__cuerpo"><p class="vacio">Elija de dónde sale el producto para ver los lotes disponibles.</p></div>
+  {% endif %}
+</form>
+
+<script>
+  // Al cambiar el origen se recarga la página con los lotes de esa zona, sin perder lo escrito.
+  (function () {
+    var form = document.querySelector("[data-traslado]");
+    var origen = form.querySelector("[name=ubicacion_origen]");
+    origen.addEventListener("change", function () {
+      var parametros = new URLSearchParams(window.location.search);
+      ["ubicacion_origen", "ubicacion_destino", "nombre_entrega"].forEach(function (nombre) {
+        parametros.set(nombre, form.querySelector("[name=" + nombre + "]").value);
+      });
+      window.location.search = parametros.toString();
+    });
+  })();
+</script>
+{% endblock %}

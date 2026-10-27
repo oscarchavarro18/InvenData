@@ -57,10 +57,16 @@
         Pedidos
       </a>
       {% endwith %}
-      <a class="menu__item{% if ruta.namespace == 'despacho' %} menu__item--activo{% endif %}" href="{% url 'despacho:despacho_lista' %}"{% if ruta.namespace == 'despacho' %} aria-current="page"{% endif %}>
+      {% with en_traslados=ruta.url_name|slice:":8" %}
+      <a class="menu__item{% if ruta.namespace == 'despacho' and en_traslados != 'traslado' %} menu__item--activo{% endif %}" href="{% url 'despacho:despacho_lista' %}"{% if ruta.namespace == 'despacho' and en_traslados != 'traslado' %} aria-current="page"{% endif %}>
         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
         Despachos
       </a>
+      <a class="menu__item{% if en_traslados == 'traslado' %} menu__item--activo{% endif %}" href="{% url 'despacho:traslado_lista' %}"{% if en_traslados == 'traslado' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h13l-3-3"/><path d="M21 17H8l3 3"/></svg>
+        Traslados a PDV
+      </a>
+      {% endwith %}
       <span class="menu__item menu__item--apagado" aria-disabled="true">
         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
         Reportes<span class="menu__pronto">Pronto</span>
@@ -68,6 +74,18 @@
       <a class="menu__item{% if ruta.url_name == 'configuracion' %} menu__item--activo{% endif %}" href="{% url 'maestros:configuracion' %}"{% if ruta.url_name == 'configuracion' %} aria-current="page"{% endif %}>
         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
         Configuración
+      </a>
+      {% endif %}
+      {% if user.es_admin_pdv %}
+      <a class="menu__item{% if ruta.namespace == 'despacho' %} menu__item--activo{% endif %}" href="{% url 'despacho:traslado_lista' %}"{% if ruta.namespace == 'despacho' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h13l-3-3"/><path d="M21 17H8l3 3"/></svg>
+        Traslados recibidos
+      </a>
+      {% endif %}
+      {% if user.ve_algun_punto_venta %}
+      <a class="menu__item{% if ruta.namespace == 'puntoventa' %} menu__item--activo{% endif %}" href="{% url 'puntoventa:existencias' %}"{% if ruta.namespace == 'puntoventa' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+        Existencia PDV
       </a>
       {% endif %}
     </nav>

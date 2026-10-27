@@ -92,7 +92,29 @@
 </div>
 {% else %}
 <section class="tarjeta">
-  <p class="vacio">Su punto de venta tendrá aquí sus existencias y ventas cuando esté listo el módulo de punto de venta. Mientras tanto puede consultar el catálogo de productos.</p>
+  <div class="tarjeta__cabeza">
+    <h2>Traslados por recibir</h2>
+    <a class="boton boton--claro boton--chico" href="{% url 'despacho:traslado_lista' %}">Ver todos</a>
+  </div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada">
+      <thead><tr><th>Traslado</th><th>Enviado</th><th>Entrega</th></tr></thead>
+      <tbody>
+        {% for traslado in por_recibir %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'despacho:traslado_detalle' traslado.pk %}">{{ traslado.consecutivo }}</a></td>
+          <td data-label="Enviado">{{ traslado.fecha_hora|date:"d/m/Y H:i" }}</td>
+          <td data-label="Entrega">{{ traslado.nombre_entrega }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="tabla__vacia">No hay traslados pendientes de recibir.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="tarjeta">
+  <p class="vacio">Las ventas llegarán con el módulo de punto de venta. Mientras tanto puede recibir traslados, consultar la <a href="{% url 'puntoventa:existencias' %}">existencia de su punto</a> y el catálogo de productos.</p>
 </section>
 {% endif %}
 {% endblock %}

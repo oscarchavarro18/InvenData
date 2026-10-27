@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Traslados a punto de venta · InvenData{% endblock %}
+{% block encabezado %}{% if user.es_admin_pdv %}Traslados recibidos{% else %}Traslados a punto de venta{% endif %}{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">{% if user.es_admin_pdv %}Lo que bodega envía a su punto. Verifique quién entrega y pese cada línea antes de aceptar.{% else %}Envíos de bodega a los puntos de venta. La existencia solo se mueve cuando el punto acepta.{% endif %}</p>
+  <div class="barra__acciones">
+    {% if user.puede_operar_bodega %}<a class="boton" href="{% url 'despacho:traslado_crear' %}">Nuevo traslado</a>{% endif %}
+  </div>
+</div>
+<div class="tarjeta">
+  <form method="get" class="filtros">
+    <select class="form-select" name="estado" aria-label="Filtrar por estado">
+      <option value="">Todos los estados</option>
+      {% for valor, nombre in estados %}
+      <option value="{{ valor }}"{% if estado == valor %} selected{% endif %}>{{ nombre }}</option>
+      {% endfor %}
+    </select>
+    <button class="boton boton--claro" type="submit">Filtrar</button>
+    {% if estado %}<a class="boton boton--claro" href="{% url 'despacho:traslado_lista' %}">Limpiar</a>{% endif %}
+  </form>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Traslado</th><th>Fecha</th><th>Sale de</th><th>Destino</th><th>Entrega</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for traslado in pagina %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'despacho:traslado_detalle' traslado.pk %}">{{ traslado.consecutivo }}</a></td>
+          <td data-label="Fecha">{{ traslado.fecha_hora|date:"d/m/Y H:i" }}</td>
+          <td data-label="Sale de">{{ traslado.ubicacion_origen.nombre }}</td>
+          <td data-label="Destino">{{ traslado.ubicacion_destino.nombre }}</td>
+          <td data-label="Entrega">{{ traslado.nombre_entrega }}</td>
+          <td data-label="Estado">{% include "componentes/pill_traslado.html" with estado=traslado.estado %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="tabla__vacia">{% if estado %}Ningún traslado en ese estado.{% else %}Todavía no hay traslados.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}

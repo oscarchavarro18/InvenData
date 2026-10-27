@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block titulo %}{{ traslado.consecutivo }} · InvenData{% endblock %}
+{% block encabezado %}Traslado a punto de venta{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <a class="volver" href="{% url 'despacho:traslado_lista' %}">← Volver a traslados</a>
+  <div class="barra__acciones"><button class="boton boton--claro" type="button" onclick="window.print()">Imprimir documento</button></div>
+</div>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza">
+    <h2>{{ traslado.consecutivo }}</h2>
+    {% include "componentes/pill_traslado.html" with estado=traslado.estado %}
+  </div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ traslado.fecha_hora|date:"d/m/Y H:i" }}</div></div>
+    <div><div class="dato__etiqueta">Sale de</div><div class="dato__valor">{{ traslado.ubicacion_origen.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Destino</div><div class="dato__valor">{{ traslado.ubicacion_destino.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Responsable del envío</div><div class="dato__valor">{{ traslado.usuario_responsable.nombre_completo }}</div></div>
+    <div><div class="dato__etiqueta">Entrega físicamente</div><div class="dato__valor">{{ traslado.nombre_entrega }}</div></div>
+    {% if traslado.usuario_confirma %}
+    <div><div class="dato__etiqueta">{{ traslado.get_estado_display }} por</div><div class="dato__valor">{{ traslado.usuario_confirma.nombre_completo }} · {{ traslado.fecha_hora_confirmacion|date:"d/m/Y H:i" }}</div></div>
+    {% endif %}
+    {% if traslado.traslado_anterior %}
+    <div><div class="dato__etiqueta">Corrige a</div><div class="dato__valor"><a href="{% url 'despacho:traslado_detalle' traslado.traslado_anterior_id %}">{{ traslado.traslado_anterior.consecutivo }}</a></div></div>
+    {% endif %}
+    {% if reenvio %}
+    <div><div class="dato__etiqueta">Reenviado como</div><div class="dato__valor"><a href="{% url 'despacho:traslado_detalle' reenvio.pk %}">{{ reenvio.consecutivo }}</a></div></div>
+    {% endif %}
+  </div>
+  {% if puede_reenviar %}
+  <div class="tarjeta__cuerpo">
+    <div class="formulario-pie"><a class="boton" href="{% url 'despacho:traslado_crear' %}?anterior={{ traslado.pk }}">Corregir y reenviar</a></div>
+  </div>
+  {% endif %}
+</section>
+
+{% if verificacion %}
+<form method="post" action="{% url 'despacho:traslado_decidir' traslado.pk %}" novalidate class="tarjeta">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>Verificar lo recibido</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if verificacion.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ verificacion.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="campo campo--ancho campo--casilla">
+      {{ verificacion.nombre_coincide }}
+      <label class="etiqueta" for="{{ verificacion.nombre_coincide.id_for_label }}">{{ verificacion.nombre_coincide.label }}: <strong>{{ traslado.nombre_entrega }}</strong></label>
+    </div>
+  </div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada tabla--formulario">
+      <thead><tr><th>Lote</th><th>Producto</th><th class="num">Declarado</th><th>Peso verificado (kg)</th></tr></thead>
+      <tbody>
+        {% for detalle, campo in verificacion.campos_de_peso %}
+        <tr>
+          <td class="tabla__principal">{{ detalle.lote.codigo }}</td>
+          <td data-label="Producto">{{ detalle.lote.producto.nombre }}</td>
+          <td data-label="Declarado" class="num">{{ detalle.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Peso verificado (kg)">{{ campo }}{% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tarjeta__cuerpo">
+    <div class="campo campo--ancho">
+      <label class="etiqueta" for="{{ verificacion.observacion.id_for_label }}">{{ verificacion.observacion.label }}</label>
+      {{ verificacion.observacion }}
+    </div>
+    <p class="campo__ayuda">Solo se acepta si quien entrega es la persona del documento y todas las líneas pesan lo declarado. Si algo no coincide, rechace con la observación: bodega corregirá y reenviará.</p>
+    <div class="formulario-pie">
+      <button class="boton boton--peligro" type="submit" name="accion" value="rechazar">Rechazar</button>
+      <button class="boton" type="submit" name="accion" value="aceptar">Aceptar traslado</button>
+    </div>
+  </div>
+</form>
+{% else %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Líneas</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Lote</th><th>Producto</th><th class="num">Declarado</th><th class="num">Verificado</th></tr></thead>
+      <tbody>
+        {% for detalle in detalles %}
+        <tr>
+          <td>{% if user.ve_bodega %}<a class="tabla__principal" href="{% url 'inventario:lote_detalle' detalle.lote_id %}">{{ detalle.lote.codigo }}</a>{% else %}<span class="tabla__principal">{{ detalle.lote.codigo }}</span>{% endif %}</td>
+          <td data-label="Producto">{{ detalle.lote.producto.nombre }}</td>
+          <td data-label="Declarado" class="num">{{ detalle.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Verificado" class="num">{% if detalle.cantidad_verificada is not None %}{{ detalle.cantidad_verificada|floatformat:2 }} kg{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Observaciones</h2></div>
+  {% if observaciones %}
+  <ul class="tarjeta__cuerpo">
+    {% for nota in observaciones %}
+    <li><strong>{{ nota.usuario.nombre_completo }}</strong> · {{ nota.fecha_hora|date:"d/m/Y H:i" }}: {{ nota.observacion }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="vacio">Sin observaciones.</p>
+  {% endif %}
+  {% if observacion_form %}
+  <form method="post" action="{% url 'despacho:traslado_observar' traslado.pk %}" novalidate class="tarjeta__cuerpo">
+    {% csrf_token %}
+    <div class="campo campo--ancho">
+      <label class="etiqueta" for="{{ observacion_form.observacion.id_for_label }}">{{ observacion_form.observacion.label }}</label>
+      {{ observacion_form.observacion }}
+    </div>
+    <div class="formulario-pie"><button class="boton boton--claro" type="submit">Agregar observación</button></div>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

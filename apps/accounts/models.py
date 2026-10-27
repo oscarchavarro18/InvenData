@@ -119,6 +119,31 @@ class Usuario(AbstractBaseUser, ModeloBase):
         )
 
     @property
+    def es_admin_pdv(self):
+        return self.activo and self.perfil.codigo == Perfil.Codigo.ADMIN_PDV
+
+    def opera_punto_venta(self, ubicacion):
+        """Quien acepta traslados y opera un PDV: el Gerente, o el administrador de ese PDV.
+
+        El administrador de punto de venta solo opera su propia ubicación (RF-03, RN-06).
+        """
+        return self.es_gerente or (self.es_admin_pdv and self.ubicacion_id == ubicacion.pk)
+
+    @property
+    def ve_algun_punto_venta(self):
+        """Gerente y Consulta ven todos los PDV; el administrador, el suyo."""
+        return self.activo and self.perfil.codigo in (
+            Perfil.Codigo.GERENTE,
+            Perfil.Codigo.CONSULTA,
+            Perfil.Codigo.ADMIN_PDV,
+        )
+
+    def ve_punto_venta(self, ubicacion):
+        """Quien consulta un PDV: quien lo opera y el perfil Consulta, que lee todo (RN-07)."""
+        consulta = self.activo and self.perfil.codigo == Perfil.Codigo.CONSULTA
+        return consulta or self.opera_punto_venta(ubicacion)
+
+    @property
     def is_staff(self):
         return self.es_gerente
 
