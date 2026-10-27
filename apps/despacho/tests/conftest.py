@@ -1,9 +1,10 @@
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from django.utils import timezone
 
-from apps.despacho.servicios import despachar_pedido
+from apps.despacho.servicios import crear_traslado, despachar_pedido
 from apps.embultaje.models import AlistamientoDetalle
 from apps.embultaje.servicios import agregar_linea, crear_pedido, marcar_alistado, sugerir_fifo
 from apps.inventario.servicios import registrar_movimiento
@@ -79,3 +80,30 @@ def despachar(jefe_bodega):
         return despachar_pedido(**datos)
 
     return hacer
+
+
+@pytest.fixture
+def enviar(en_bultos, zona_bultos, punto_venta, jefe_bodega):
+    """Envía `kg` del lote embultado al punto de venta; acepta cambios."""
+
+    def hacer(kg="30", **cambios):
+        datos = {
+            "origen": zona_bultos,
+            "destino": punto_venta,
+            "nombre_entrega": "Luis Gómez",
+            "lineas": [{"lote": en_bultos, "cantidad": kg}],
+            "usuario": jefe_bodega,
+            **cambios,
+        }
+        return crear_traslado(**datos)
+
+    return hacer
+
+
+def pesos_de(traslado, cambios=None):
+    """Lo que pesa el PDV al recibir: lo declarado, salvo los lotes indicados por código."""
+    cambios = cambios or {}
+    return {
+        d.pk: Decimal(cambios.get(d.lote.codigo, d.cantidad))
+        for d in traslado.detalles.select_related("lote")
+    }

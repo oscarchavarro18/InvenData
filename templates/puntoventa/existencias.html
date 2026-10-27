@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}Existencia del punto de venta · InvenData{% endblock %}
+{% block encabezado %}Existencia del punto de venta{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">En el punto de venta el control es por producto, no por lote: así se exhibe en la vitrina.</p>
+</div>
+<div class="tarjeta">
+  {% if puntos|length > 1 %}
+  <form method="get" class="filtros">
+    <select class="form-select" name="ubicacion" aria-label="Punto de venta">
+      {% for p in puntos %}<option value="{{ p.pk }}"{% if punto and p.pk == punto.pk %} selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+    </select>
+    <button class="boton boton--claro" type="submit">Ver</button>
+  </form>
+  {% endif %}
+  {% if punto %}
+  <div class="tarjeta__cabeza"><h2>{{ punto.nombre }}</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Producto</th><th>Código</th><th class="num">Cantidad</th><th>Actualizado</th></tr></thead>
+      <tbody>
+        {% for fila in pagina %}
+        <tr>
+          <td class="tabla__principal">{{ fila.producto.nombre }}</td>
+          <td data-label="Código">{{ fila.producto.codigo }}</td>
+          <td data-label="Cantidad" class="num">{{ fila.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Actualizado">{{ fila.actualizado_en|date:"d/m/Y H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="tabla__vacia">El punto de venta todavía no tiene producto. Llega cuando acepta un traslado de bodega.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+  {% else %}
+  <p class="vacio">No hay puntos de venta registrados.</p>
+  {% endif %}
+</div>
+{% endblock %}

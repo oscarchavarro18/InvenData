@@ -3,6 +3,7 @@ from django.db import connection
 from django.http import JsonResponse
 from django.shortcuts import render
 
+from apps.despacho.models import EstadoTraslado, TrasladoPdv
 from apps.inventario.consultas import (
     DIAS_POR_VENCER,
     kg_en_bodega,
@@ -26,10 +27,14 @@ def salud(request):
 def inicio(request):
     """Tablero: indicadores del día, últimas recepciones y lotes próximos a vencer.
 
-    El administrador de punto de venta no ve nada de la bodega (RN-06); su tablero llega con M7.
+    El administrador de punto de venta no ve nada de la bodega (RN-06): ve los traslados que
+    tiene por recibir; el resto de su tablero llega con M7.
     """
     if not request.user.ve_bodega:
-        return render(request, "inicio.html")
+        por_recibir = TrasladoPdv.objects.filter(
+            ubicacion_destino_id=request.user.ubicacion_id, estado=EstadoTraslado.ENVIADO
+        )
+        return render(request, "inicio.html", {"por_recibir": por_recibir})
     por_vencer = lotes_por_vencer()
     contexto = {
         "documentos_abiertos": DocumentoProveedor.objects.filter(

@@ -1,12 +1,18 @@
-"""Servicio de despacho mayorista (RF-35, RF-36, RF-37, RN-27, RD-04).
+"""Servicio de despacho mayorista y de traslado a punto de venta (RF-35 a RF-45).
 
 Despachar un pedido alistado es un solo paso: en una transacción se crea el documento, cada
 línea registra un movimiento DESPACHO_MAYORISTA que descuenta la existencia de inmediato y el
 pedido queda DESPACHADO. La constancia de entrega (firma en pantalla o foto del papel
-firmado) se registra después y no mueve inventario. Toda escritura queda en auditoría.
+firmado) se registra después y no mueve inventario.
+
+El traslado a punto de venta, en cambio, exige que el PDV destino verifique y acepte (RD-04):
+al enviarlo no se mueve nada; al aceptarlo, en una sola transacción, sale de bodega por lote y
+entra al PDV por producto (RN-30); al rechazarlo queda el motivo y bodega reenvía un documento
+corregido. Toda escritura queda en auditoría (RF-10).
 """
 
 from decimal import Decimal, InvalidOperation
+from uuid import uuid4
 
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
@@ -14,10 +20,23 @@ from django.utils import timezone
 
 from apps.auditoria.models import AccionAuditoria, Evidencia
 from apps.auditoria.servicios import instantanea, registrar
-from apps.despacho.models import DespachoDetalle, DespachoMayorista, TipoDocumentoDespacho
+from apps.despacho.consultas import candidatos_traslado
+from apps.despacho.models import (
+    DespachoDetalle,
+    DespachoMayorista,
+    EstadoTraslado,
+    TipoDocumentoDespacho,
+    TrasladoPdv,
+    TrasladoPdvDetalle,
+    TrasladoPdvObservacion,
+)
+from apps.embultaje.consultas import UBICACIONES_DE_ALISTAMIENTO
 from apps.embultaje.models import AlistamientoDetalle, EstadoPedido, Pedido
-from apps.inventario.models import TipoMovimiento
+from apps.inventario.models import Lote, TipoMovimiento
 from apps.inventario.servicios import registrar_movimiento
+from apps.maestros.models import TipoUbicacion
+from apps.puntoventa.models import TipoMovimientoPdv
+from apps.puntoventa.servicios import registrar_movimiento_pdv
 
 CERO = Decimal("0")
 DOS_DECIMALES = Decimal("0.01")
@@ -249,3 +268,198 @@ def registrar_entrega(*, despacho, usuario, nombre_recibe, firma=None, archivo=N
         )
     _auditar(usuario, despacho, AccionAuditoria.MODIFICAR, ip, anterior=anterior)
     return despacho
+
+
+# --- Traslado a punto de venta (RF-38 a RF-45) -------------------------------
+
+
+def ve_traslado(usuario, traslado):
+    """Bodega y consulta ven todos; el administrador de PDV, solo los de su punto (RN-06)."""
+    return usuario.ve_bodega or usuario.opera_punto_venta(traslado.ubicacion_destino)
+
+
+def _exigir_decision(usuario, traslado):
+    if not usuario.opera_punto_venta(traslado.ubicacion_destino):
+        raise PermissionDenied(
+            "Solo el administrador del punto de venta destino o el Gerente reciben el traslado."
+        )
+
+
+def _traslado_enviado(pk):
+    traslado = (
+        TrasladoPdv.objects.select_for_update()
+        .select_related("ubicacion_origen", "ubicacion_destino")
+        .get(pk=pk)
+    )
+    if traslado.estado != EstadoTraslado.ENVIADO:
+        raise DespachoInvalido(
+            f"El traslado {traslado.consecutivo} ya fue {traslado.get_estado_display().lower()}."
+        )
+    return traslado
+
+
+@transaction.atomic
+def crear_traslado(
+    *, origen, destino, nombre_entrega, lineas, usuario, traslado_anterior=None, ip=None
+):
+    """Registra el envío a un PDV y lo deja visible para ese punto de inmediato (RF-38, RF-39).
+
+    No mueve la existencia: lo enviado queda apartado hasta que el PDV acepte o rechace.
+    `lineas` es una lista de diccionarios con `lote` y `cantidad`. Con `traslado_anterior`,
+    es el reenvío corregido de un traslado rechazado (RF-44).
+    """
+    _exigir_operador(usuario)
+    if origen.tipo not in UBICACIONES_DE_ALISTAMIENTO:
+        raise DespachoInvalido(
+            "El traslado sale de la zona de bultos, el cuarto de sostenimiento o el túnel."
+        )
+    if destino.tipo != TipoUbicacion.PUNTO_VENTA or not destino.activo:
+        raise DespachoInvalido("El destino debe ser un punto de venta activo.")
+    nombre_entrega = _texto(nombre_entrega, "El nombre de quien entrega")
+    if not lineas:
+        raise DespachoInvalido("El traslado necesita al menos un lote.")
+    lotes = [datos["lote"].pk for datos in lineas]
+    if len(set(lotes)) != len(lotes):
+        raise DespachoInvalido("Cada lote va una sola vez en el traslado.")
+    if traslado_anterior is not None:
+        traslado_anterior = TrasladoPdv.objects.select_for_update().get(pk=traslado_anterior.pk)
+        if traslado_anterior.estado != EstadoTraslado.RECHAZADO:
+            raise DespachoInvalido("Solo se reenvía un traslado rechazado.")
+        if traslado_anterior.reenvios.exists():
+            raise DespachoInvalido(
+                f"El traslado {traslado_anterior.consecutivo} ya tiene su reenvío."
+            )
+
+    # Se bloquean los lotes: dos envíos a la vez no apartan el mismo saldo.
+    list(Lote.objects.select_for_update().filter(pk__in=lotes).values_list("pk"))
+    disponibles = {c.lote.pk: c.disponible for c in candidatos_traslado(origen)}
+    validadas = []
+    for datos in lineas:
+        lote = datos["lote"]
+        cantidad = _decimal(datos.get("cantidad"), f"La cantidad del lote {lote}", LIMITE_KG)
+        disponible = disponibles.get(lote.pk, CERO)
+        if cantidad > disponible:
+            raise DespachoInvalido(
+                f"Del lote {lote} en {origen.nombre} solo hay {disponible} kg disponibles."
+            )
+        validadas.append((lote, cantidad))
+
+    traslado = TrasladoPdv.objects.create(
+        consecutivo=f"TMP-{uuid4().hex[:16]}",
+        fecha=timezone.localdate(),
+        ubicacion_origen=origen,
+        ubicacion_destino=destino,
+        usuario_responsable=usuario,
+        nombre_entrega=nombre_entrega,
+        traslado_anterior=traslado_anterior,
+    )
+    traslado.consecutivo = f"T-{traslado.pk:06d}"
+    traslado.save(update_fields=["consecutivo"])
+    for lote, cantidad in validadas:
+        TrasladoPdvDetalle.objects.create(traslado_pdv=traslado, lote=lote, cantidad=cantidad)
+    _auditar(usuario, traslado, AccionAuditoria.CREAR, ip)
+    return traslado
+
+
+def _verificadas(detalles, verificadas):
+    """Lo pesado en el PDV, una cifra por cada línea del traslado (RF-42)."""
+    if set(verificadas) != {d.pk for d in detalles}:
+        raise DespachoInvalido("Pese y registre todas las líneas del traslado.")
+    return {
+        d.pk: _decimal(
+            verificadas[d.pk], f"El peso del lote {d.lote}", LIMITE_KG, permite_cero=True
+        )
+        for d in detalles
+    }
+
+
+@transaction.atomic
+def aceptar_traslado(*, traslado, usuario, nombre_coincide, verificadas, ip=None):
+    """Acepta el traslado y mueve la existencia de bodega al PDV (RF-41, RF-42, RN-28, RN-30).
+
+    Solo se acepta si quien entrega es quien dice el documento y si cada línea pesa lo
+    declarado; si no, la persona debe rechazarlo. Por línea, en una sola transacción, sale de
+    bodega un TRASLADO_PDV por lote y entra al PDV un ENTRADA_TRASLADO por producto.
+    """
+    traslado = _traslado_enviado(traslado.pk)
+    _exigir_decision(usuario, traslado)
+    if not nombre_coincide:
+        raise DespachoInvalido(
+            "Si quien entrega no es la persona del documento, rechace el traslado (RF-41)."
+        )
+    detalles = list(traslado.detalles.select_related("lote__producto"))
+    pesos = _verificadas(detalles, verificadas)
+    distintas = [d.lote.codigo for d in detalles if pesos[d.pk] != d.cantidad]
+    if distintas:
+        raise DespachoInvalido(
+            f"El peso no coincide en {', '.join(distintas)}: rechace el traslado con su "
+            "observación (RN-28)."
+        )
+
+    anterior = instantanea(traslado)
+    for detalle in detalles:
+        registrar_movimiento(
+            lote=detalle.lote,
+            tipo=TipoMovimiento.TRASLADO_PDV,
+            cantidad=detalle.cantidad,
+            usuario=usuario,
+            ubicacion_origen=traslado.ubicacion_origen,
+            ubicacion_destino=traslado.ubicacion_destino,
+        )
+        registrar_movimiento_pdv(
+            ubicacion=traslado.ubicacion_destino,
+            producto=detalle.lote.producto,
+            tipo=TipoMovimientoPdv.ENTRADA_TRASLADO,
+            cantidad=detalle.cantidad,
+            usuario=usuario,
+        )
+        detalle.cantidad_verificada = pesos[detalle.pk]
+        detalle.save(update_fields=["cantidad_verificada"])
+    traslado.estado = EstadoTraslado.ACEPTADO
+    traslado.usuario_confirma = usuario
+    traslado.fecha_hora_confirmacion = timezone.now()
+    traslado.save(update_fields=["estado", "usuario_confirma", "fecha_hora_confirmacion"])
+    _auditar(usuario, traslado, AccionAuditoria.MODIFICAR, ip, anterior=anterior)
+    return traslado
+
+
+def _observar(traslado, usuario, observacion, ip):
+    nota = TrasladoPdvObservacion.objects.create(
+        traslado_pdv=traslado, usuario=usuario, observacion=observacion
+    )
+    _auditar(usuario, nota, AccionAuditoria.CREAR, ip)
+    return nota
+
+
+@transaction.atomic
+def rechazar_traslado(*, traslado, usuario, observacion, verificadas=None, ip=None):
+    """Rechaza el traslado: nada se mueve y queda el motivo por escrito (RF-43, RN-29).
+
+    Si la persona alcanzó a pesar, lo pesado queda registrado como soporte del rechazo.
+    """
+    traslado = _traslado_enviado(traslado.pk)
+    _exigir_decision(usuario, traslado)
+    observacion = _texto(observacion, "El motivo del rechazo")
+    if verificadas:
+        detalles = list(traslado.detalles.select_related("lote"))
+        pesos = _verificadas(detalles, verificadas)
+        for detalle in detalles:
+            detalle.cantidad_verificada = pesos[detalle.pk]
+            detalle.save(update_fields=["cantidad_verificada"])
+
+    anterior = instantanea(traslado)
+    traslado.estado = EstadoTraslado.RECHAZADO
+    traslado.usuario_confirma = usuario
+    traslado.fecha_hora_confirmacion = timezone.now()
+    traslado.save(update_fields=["estado", "usuario_confirma", "fecha_hora_confirmacion"])
+    _observar(traslado, usuario, observacion, ip)
+    _auditar(usuario, traslado, AccionAuditoria.MODIFICAR, ip, anterior=anterior)
+    return traslado
+
+
+@transaction.atomic
+def agregar_observacion(*, traslado, usuario, observacion, ip=None):
+    """Nota de bodega, gerencia o el PDV destino mientras se revisa el caso (RF-43, RF-44)."""
+    if not (usuario.puede_operar_bodega or usuario.opera_punto_venta(traslado.ubicacion_destino)):
+        raise PermissionDenied("No participa en este traslado.")
+    return _observar(traslado, usuario, _texto(observacion, "La observación"), ip)

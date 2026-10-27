@@ -101,7 +101,13 @@ class Candidato:
 
 
 def comprometido_por_ubicacion(producto):
-    """Kg ya planeados en pedidos abiertos, por (lote, ubicación), para un producto."""
+    """Kg ya apartados, por (lote, ubicación), para un producto.
+
+    Suma lo planeado en pedidos abiertos y lo enviado a un PDV que todavía no se acepta
+    (M6): ninguno de los dos se puede ofrecer otra vez.
+    """
+    from apps.despacho.consultas import comprometido_en_traslados  # M6 depende de M5
+
     filas = (
         AlistamientoDetalle.objects.filter(
             lote__producto=producto,
@@ -111,7 +117,10 @@ def comprometido_por_ubicacion(producto):
         .annotate(total=Sum("cantidad"))
         .order_by()
     )
-    return {(f["lote_id"], f["ubicacion_id"]): f["total"] for f in filas}
+    comprometido = {(f["lote_id"], f["ubicacion_id"]): f["total"] for f in filas}
+    for clave, total in comprometido_en_traslados(lote__producto=producto).items():
+        comprometido[clave] = comprometido.get(clave, CERO) + total
+    return comprometido
 
 
 def candidatos_fifo(producto):
