@@ -3,12 +3,13 @@
 {% block encabezado %}Dashboard{% endblock %}
 {% block contenido %}
 <div class="barra">
-  <p class="barra__texto">Bienvenido, {{ user.nombre_completo }}. Este es el estado de la bodega.</p>
+  <p class="barra__texto">Bienvenido, {{ user.nombre_completo }}.{% if user.ve_bodega %} Este es el estado de la bodega.{% endif %}</p>
   <div class="barra__acciones">
     {% if user.puede_operar_recepcion %}<a class="boton" href="{% url 'recepcion:documento_crear' %}">Nuevo documento del proveedor</a>{% endif %}
   </div>
 </div>
 
+{% if user.ve_bodega %}
 <section class="indicadores" aria-label="Indicadores">
   <div class="indicador">
     <div class="indicador__etiqueta">Documentos abiertos</div>
@@ -72,7 +73,7 @@
         <tbody>
           {% for lote in por_vencer %}
           <tr>
-            <td class="tabla__principal">{{ lote.codigo }}</td>
+            <td><a class="tabla__principal" href="{% url 'inventario:lote_detalle' lote.pk %}">{{ lote.codigo }}</a></td>
             <td data-label="Producto">{{ lote.producto.nombre }}</td>
             <td data-label="Existencia" class="num">{{ lote.kg|floatformat:2 }} kg</td>
             <td data-label="Vence">
@@ -89,4 +90,9 @@
     </div>
   </section>
 </div>
+{% else %}
+<section class="tarjeta">
+  <p class="vacio">Su punto de venta tendrá aquí sus existencias y ventas cuando esté listo el módulo de punto de venta. Mientras tanto puede consultar el catálogo de productos.</p>
+</section>
+{% endif %}
 {% endblock %}

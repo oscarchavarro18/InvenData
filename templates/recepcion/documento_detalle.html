@@ -50,7 +50,7 @@
   {% for item in fila.lotes %}
   <div class="lote" id="lote-{{ item.lote.pk }}">
     <div class="lote__cabeza">
-      <span class="lote__codigo">Lote {{ item.lote.codigo }}</span>
+      <a class="lote__codigo" href="{% url 'inventario:lote_detalle' item.lote.pk %}">Lote {{ item.lote.codigo }}</a>
       <span class="lote__meta">
         <span class="pill pill--azul">{{ item.lote.get_estado_producto_display }}</span>
         <span>Vence {{ item.lote.fecha_vencimiento|date:"d/m/Y" }}</span>

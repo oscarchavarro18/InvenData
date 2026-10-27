@@ -40,12 +40,13 @@
           <th>Estado</th>
           <th class="num">Cantidad</th>
           <th>Vence</th>
+          {% if user.puede_operar_bodega %}<th>Acción</th>{% endif %}
         </tr>
       </thead>
       <tbody>
         {% for fila in pagina %}
         <tr>
-          <td class="tabla__principal">{{ fila.lote.codigo }}</td>
+          <td><a class="tabla__principal" href="{% url 'inventario:lote_detalle' fila.lote.pk %}">{{ fila.lote.codigo }}</a></td>
           <td data-label="Producto">{{ fila.lote.producto.nombre }}<span class="tabla__secundario">{{ fila.lote.producto.codigo }}</span></td>
           <td data-label="Ubicación">{{ fila.ubicacion.nombre }}</td>
           <td data-label="Estado"><span class="pill pill--azul">{{ fila.lote.get_estado_producto_display }}</span></td>
@@ -54,9 +55,12 @@
             {{ fila.lote.fecha_vencimiento|date:"d/m/Y" }}
             {% if fila.lote.fecha_vencimiento < hoy %}<span class="pill pill--rojo">Vencido</span>{% endif %}
           </td>
+          {% if user.puede_operar_bodega %}
+          <td><a class="boton boton--claro boton--chico" href="{% url 'inventario:trasladar' fila.lote.pk fila.ubicacion.pk %}">Trasladar</a></td>
+          {% endif %}
         </tr>
         {% empty %}
-        <tr><td colspan="6" class="tabla__vacia">{% if q or ubicacion %}Ninguna existencia coincide con el filtro.{% else %}Todavía no hay producto en bodega. Aparecerá aquí al cerrar una recepción.{% endif %}</td></tr>
+        <tr><td colspan="{% if user.puede_operar_bodega %}7{% else %}6{% endif %}" class="tabla__vacia">{% if q or ubicacion %}Ninguna existencia coincide con el filtro.{% else %}Todavía no hay producto en bodega. Aparecerá aquí al cerrar una recepción.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

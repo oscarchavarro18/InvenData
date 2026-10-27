@@ -24,7 +24,12 @@ def salud(request):
 
 @login_required
 def inicio(request):
-    """Tablero: indicadores del día, últimas recepciones y lotes próximos a vencer."""
+    """Tablero: indicadores del día, últimas recepciones y lotes próximos a vencer.
+
+    El administrador de punto de venta no ve nada de la bodega (RN-06); su tablero llega con M7.
+    """
+    if not request.user.ve_bodega:
+        return render(request, "inicio.html")
     por_vencer = lotes_por_vencer()
     contexto = {
         "documentos_abiertos": DocumentoProveedor.objects.filter(

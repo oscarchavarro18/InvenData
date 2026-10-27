@@ -10,6 +10,8 @@ from decimal import Decimal, InvalidOperation
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 
+from apps.auditoria.models import AccionAuditoria
+from apps.auditoria.servicios import instantanea, registrar
 from apps.inventario.models import (
     EstadoLote,
     Existencia,
@@ -257,3 +259,37 @@ def reversar_movimiento(*, movimiento, usuario, observacion):
             )
         )
     return ajustes
+
+
+@transaction.atomic
+def trasladar_entre_zonas(*, lote, origen, destino, cantidad, usuario, observacion=None, ip=None):
+    """Mueve producto de un lote entre dos zonas de la bodega (RF-19, RN-18).
+
+    Solo el Gerente y el Jefe de bodega. El destino debe estar activo; el origen puede estar
+    inactivo, para poder vaciar una zona que se dejó de usar. No cambia el estado del producto:
+    estar en el túnel no significa que ya esté congelado. La observación es opcional. El
+    movimiento y su rastro en auditoría (RF-10) quedan en la misma transacción.
+    """
+    if not usuario.puede_operar_bodega:
+        raise PermissionDenied("Solo el Gerente y el Jefe de bodega trasladan inventario.")
+    if not destino.activo:
+        raise MovimientoInvalido(f"{destino.nombre} está inactiva: no puede recibir producto.")
+    movimiento = registrar_movimiento(
+        lote=lote,
+        tipo=TipoMovimiento.TRASLADO_INTERNO,
+        cantidad=cantidad,
+        usuario=usuario,
+        ubicacion_origen=origen,
+        ubicacion_destino=destino,
+        observacion=observacion,
+    )
+    movimiento.refresh_from_db()  # lo que quedó guardado (fecha, decimales con dos cifras)
+    registrar(
+        usuario=usuario,
+        entidad=Movimiento._meta.db_table,
+        registro_id=movimiento.pk,
+        accion=AccionAuditoria.CREAR,
+        valor_nuevo=instantanea(movimiento),
+        ip=ip,
+    )
+    return movimiento

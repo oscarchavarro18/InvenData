@@ -1,4 +1,7 @@
-"""Permisos por perfil en la recepción (RF-02): leer es de todos, operar es de bodega."""
+"""Permisos por perfil en la recepción (RF-02, RN-06).
+
+Leer es de todos menos el administrador de punto de venta; operar es de gerente y jefe de bodega.
+"""
 
 import pytest
 from django.urls import reverse
@@ -84,3 +87,21 @@ def test_sin_sesion_las_acciones_redirigen_al_ingreso(client, linea):
     respuesta = client.post(reverse("recepcion:linea_agregar", args=[linea.documento_proveedor_id]))
     assert respuesta.status_code == 302
     assert respuesta.url.startswith(reverse("login"))
+
+
+@pytest.mark.parametrize("nombre", ["recepcion:documento_lista", "recepcion:documento_detalle"])
+def test_el_administrador_de_pdv_no_ve_la_recepcion(client, admin_pdv, linea, nombre):
+    """RN-06: la recepción es de bodega; el administrador de punto de venta recibe 403."""
+    client.force_login(admin_pdv)
+    con_id = nombre.endswith("detalle")
+    url = reverse(nombre, args=[linea.documento_proveedor_id]) if con_id else reverse(nombre)
+    assert client.get(url).status_code == 403
+
+
+@pytest.mark.parametrize(("nombre", "con_id"), ACCIONES)
+def test_el_administrador_de_pdv_tampoco_opera_la_recepcion(
+    client, admin_pdv, linea, nombre, con_id
+):
+    client.force_login(admin_pdv)
+    url = reverse(nombre, args=[linea.pk]) if con_id else reverse(nombre)
+    assert client.post(url, {}).status_code == 403

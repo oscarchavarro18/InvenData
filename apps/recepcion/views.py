@@ -1,11 +1,11 @@
 """Pantallas de recepción de producto (M2).
 
-Leer es abierto a todo usuario con sesión; crear documentos, lotes y pesadas y cerrar el
-documento exige perfil de gerente o jefe de bodega (RF-02).
+Leer es abierto a todo perfil menos el administrador de punto de venta, que nunca ve la
+bodega (RN-06); crear documentos, lotes y pesadas y cerrar el documento exige perfil de
+gerente o jefe de bodega (RF-02).
 """
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Count, Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 
 from apps.auditoria.models import AccionAuditoria
 from apps.auditoria.servicios import instantanea, ip_de, registrar
-from apps.core.permisos import operador_de_recepcion
+from apps.core.permisos import acceso_bodega, operador_de_recepcion
 from apps.inventario.models import Lote
 from apps.recepcion.forms import DocumentoForm, LineaForm, LoteForm, TandaForm
 from apps.recepcion.models import (
@@ -36,7 +36,7 @@ from apps.recepcion.servicios import (
 )
 
 
-@login_required
+@acceso_bodega
 def documento_lista(request):
     documentos = DocumentoProveedor.objects.select_related("proveedor").annotate(
         n_lineas=Count("lineas")
@@ -147,7 +147,7 @@ def _pendientes_de_cierre(filas):
     return impiden, avisan
 
 
-@login_required
+@acceso_bodega
 def documento_detalle(request, pk):
     documento = get_object_or_404(DocumentoProveedor.objects.select_related("proveedor"), pk=pk)
     abierto = documento.estado == EstadoDocumento.ABIERTO
