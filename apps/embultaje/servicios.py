@@ -1,22 +1,40 @@
-"""Servicio de embultaje (RF-30, RF-31, RN-23, RN-24, RN-26).
+"""Servicio de embultaje, pedidos y alistamiento (RF-30 a RF-34, RN-23 a RN-26).
 
 Registrar un embultaje mueve de una vez lo embultado del origen al destino con un movimiento
 EMBULTAJE: no es un borrador, porque lo que se pesa ya está empacado. El documento del día
 se crea solo con el primer registro de la jornada. Cerrar el lote lo marca EMBULTADO y da de
-baja como merma lo que quedó en origen. Toda escritura deja su rastro en auditoría (RF-10).
+baja como merma lo que quedó en origen.
+
+El alistamiento de un pedido es un plan de picking: aparta lotes para cada línea sin tocar la
+existencia, que se descuenta al despachar (M6). Toda escritura deja su rastro en auditoría
+(RF-10).
 """
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from apps.auditoria.models import AccionAuditoria
 from apps.auditoria.servicios import instantanea, registrar
-from apps.embultaje.consultas import resumen_de_cierre
-from apps.embultaje.models import Bulto, DocumentoEmbultaje, EmbultajeRegistro
+from apps.embultaje.consultas import (
+    UBICACIONES_DE_ALISTAMIENTO,
+    candidatos_fifo,
+    resumen_de_cierre,
+)
+from apps.embultaje.models import (
+    AlistamientoDetalle,
+    Bulto,
+    DocumentoEmbultaje,
+    EmbultajeRegistro,
+    EstadoPedido,
+    Pedido,
+    PedidoLinea,
+)
 from apps.inventario.models import EstadoLote, Lote, OrigenLote, TipoMovimiento
 from apps.inventario.servicios import existencia_de, registrar_movimiento
 from apps.maestros.models import TipoUbicacion
@@ -57,16 +75,21 @@ def _exigir_operador(usuario):
         raise PermissionDenied("Solo el Gerente y el Jefe de bodega operan el embultaje.")
 
 
-def _auditar(usuario, objeto, accion, ip, *, anterior=None):
-    """Deja en auditoría lo que quedó guardado; va en la misma transacción (RF-10)."""
-    objeto.refresh_from_db()
+def _auditar(usuario, objeto, accion, ip, *, anterior=None, registro_id=None):
+    """Deja en auditoría lo que quedó guardado; va en la misma transacción (RF-10).
+
+    Al anular (borrar) se pasa el id aparte, porque el objeto ya no lo conserva, y no hay
+    valor nuevo.
+    """
+    if accion != AccionAuditoria.ANULAR:
+        objeto.refresh_from_db()
     registrar(
         usuario=usuario,
         entidad=objeto._meta.db_table,
-        registro_id=objeto.pk,
+        registro_id=registro_id or objeto.pk,
         accion=accion,
         valor_anterior=anterior,
-        valor_nuevo=instantanea(objeto),
+        valor_nuevo=None if accion == AccionAuditoria.ANULAR else instantanea(objeto),
         ip=ip,
     )
 
@@ -233,3 +256,225 @@ def cerrar_lote(*, lote, usuario, ip=None):
     )
     _auditar(usuario, lote, AccionAuditoria.MODIFICAR, ip, anterior=anterior)
     return lote
+
+
+# --- Pedidos y alistamiento (RF-32 a RF-34) ----------------------------------
+
+
+def _pedido_editable(pk):
+    """Relee el pedido bloqueándolo; solo un pedido CREADO admite cambios."""
+    pedido = Pedido.objects.select_for_update().get(pk=pk)
+    if pedido.estado != EstadoPedido.CREADO:
+        raise EmbultajeInvalido(
+            f"El pedido {pedido.consecutivo} está {pedido.get_estado_display().lower()}: "
+            "ya no admite cambios."
+        )
+    return pedido
+
+
+@transaction.atomic
+def crear_pedido(*, cliente, fecha, usuario, ip=None):
+    """Registra el pedido de un cliente mayorista, todavía sin líneas (RF-32)."""
+    _exigir_operador(usuario)
+    if not cliente.activo:
+        raise EmbultajeInvalido(f"El cliente {cliente.razon_social} está inactivo.")
+    if not isinstance(fecha, date):
+        raise EmbultajeInvalido("La fecha del pedido no es válida.")
+    # Igual que el lote: el consecutivo sale del id, que la base entrega sin repetir.
+    pedido = Pedido.objects.create(
+        consecutivo=f"TMP-{uuid4().hex[:16]}", cliente=cliente, fecha=fecha, usuario_crea=usuario
+    )
+    pedido.consecutivo = f"P-{pedido.pk:06d}"
+    pedido.save(update_fields=["consecutivo"])
+    _auditar(usuario, pedido, AccionAuditoria.CREAR, ip)
+    return pedido
+
+
+@transaction.atomic
+def agregar_linea(*, pedido, producto, cantidad_solicitada, usuario, ip=None):
+    _exigir_operador(usuario)
+    pedido = _pedido_editable(pedido.pk)
+    if not producto.activo:
+        raise EmbultajeInvalido(f"El producto {producto.nombre} está inactivo.")
+    if pedido.lineas.filter(producto=producto).exists():
+        raise EmbultajeInvalido(
+            f"El pedido ya tiene una línea de {producto.nombre}: ajuste esa línea."
+        )
+    linea = PedidoLinea.objects.create(
+        pedido=pedido,
+        producto=producto,
+        cantidad_solicitada=_kg(cantidad_solicitada, "La cantidad solicitada"),
+    )
+    _auditar(usuario, linea, AccionAuditoria.CREAR, ip)
+    return linea
+
+
+@transaction.atomic
+def quitar_linea(*, linea, usuario, ip=None):
+    _exigir_operador(usuario)
+    _pedido_editable(linea.pedido_id)
+    if linea.alistamientos.exists():
+        raise EmbultajeInvalido("Quite primero los lotes asignados a la línea.")
+    anterior, linea_id = instantanea(linea), linea.pk
+    linea.delete()
+    _auditar(usuario, linea, AccionAuditoria.ANULAR, ip, anterior=anterior, registro_id=linea_id)
+
+
+def _pendiente(linea):
+    asignado = linea.alistamientos.aggregate(total=Sum("cantidad"))["total"] or CERO
+    return linea.cantidad_solicitada - asignado
+
+
+def _bloquear_lotes(producto):
+    """Bloquea los lotes del producto: dos personas no apartan a la vez el mismo saldo."""
+    list(Lote.objects.select_for_update().filter(producto=producto).values_list("pk"))
+
+
+@transaction.atomic
+def asignar_lote(*, linea, lote, ubicacion, cantidad, usuario, justificacion=None, ip=None):
+    """Cubre parte de una línea con un lote elegido por la persona (RF-33, RF-34, RN-25).
+
+    Si no es el que sugiere FIFO, la justificación es obligatoria. No toca la existencia:
+    solo aparta lo disponible (existencia menos lo comprometido en otros pedidos).
+    """
+    _exigir_operador(usuario)
+    _pedido_editable(linea.pedido_id)
+    linea = PedidoLinea.objects.select_related("producto").get(pk=linea.pk)
+    if lote.producto_id != linea.producto_id:
+        raise EmbultajeInvalido(
+            f"El lote {lote.codigo} no es de {linea.producto.nombre}: no cubre esta línea."
+        )
+    if ubicacion.tipo not in UBICACIONES_DE_ALISTAMIENTO:
+        raise EmbultajeInvalido(f"No se alista desde {ubicacion.nombre}.")
+    if lote.fecha_vencimiento < timezone.localdate():
+        raise EmbultajeInvalido(f"El lote {lote.codigo} está vencido: no se alista.")
+    cantidad = _kg(cantidad, "La cantidad")
+    pendiente = _pendiente(linea)
+    if cantidad > pendiente:
+        raise EmbultajeInvalido(f"A la línea solo le faltan {pendiente} kg por cubrir.")
+
+    _bloquear_lotes(linea.producto)
+    candidatos = candidatos_fifo(linea.producto)
+    elegido = next(
+        (c for c in candidatos if (c.lote.pk, c.ubicacion.pk) == (lote.pk, ubicacion.pk)), None
+    )
+    disponible = CERO if elegido is None else elegido.disponible
+    if cantidad > disponible:
+        raise EmbultajeInvalido(
+            f"Del lote {lote.codigo} en {ubicacion.nombre} solo hay {disponible} kg disponibles."
+        )
+    sugerido = candidatos[0] is elegido
+    justificacion = (justificacion or "").strip() or None
+    if not sugerido and justificacion is None:
+        raise EmbultajeInvalido(
+            f"FIFO sugiere el lote {candidatos[0].lote.codigo} en "
+            f"{candidatos[0].ubicacion.nombre}: justifique por escrito si usa otro."
+        )
+    detalle = AlistamientoDetalle.objects.create(
+        pedido_linea=linea,
+        lote=lote,
+        ubicacion=ubicacion,
+        cantidad=cantidad,
+        sugerido_por_fifo=sugerido,
+        justificacion_cambio=None if sugerido else justificacion,
+    )
+    _auditar(usuario, detalle, AccionAuditoria.CREAR, ip)
+    return detalle
+
+
+@transaction.atomic
+def sugerir_fifo(*, linea, usuario, ip=None):
+    """Cubre lo que falta de la línea con los lotes más antiguos disponibles (RF-33, RN-25).
+
+    Puede necesitar varios lotes (RF-34). Si no alcanza, cubre lo que haya. Devuelve los
+    detalles creados.
+    """
+    _exigir_operador(usuario)
+    _pedido_editable(linea.pedido_id)
+    linea = PedidoLinea.objects.select_related("producto").get(pk=linea.pk)
+    pendiente = _pendiente(linea)
+    if pendiente <= CERO:
+        raise EmbultajeInvalido("La línea ya está cubierta.")
+    _bloquear_lotes(linea.producto)
+    candidatos = candidatos_fifo(linea.producto)
+    if not candidatos:
+        raise EmbultajeInvalido(f"No hay {linea.producto.nombre} disponible para alistar.")
+    detalles = []
+    for candidato in candidatos:
+        if pendiente <= CERO:
+            break
+        cantidad = min(pendiente, candidato.disponible)
+        detalle = AlistamientoDetalle.objects.create(
+            pedido_linea=linea,
+            lote=candidato.lote,
+            ubicacion=candidato.ubicacion,
+            cantidad=cantidad,
+            sugerido_por_fifo=True,
+        )
+        _auditar(usuario, detalle, AccionAuditoria.CREAR, ip)
+        detalles.append(detalle)
+        pendiente -= cantidad
+    return detalles
+
+
+@transaction.atomic
+def quitar_alistamiento(*, detalle, usuario, ip=None):
+    _exigir_operador(usuario)
+    _pedido_editable(detalle.pedido_linea.pedido_id)
+    anterior, detalle_id = instantanea(detalle), detalle.pk
+    detalle.delete()
+    _auditar(
+        usuario, detalle, AccionAuditoria.ANULAR, ip, anterior=anterior, registro_id=detalle_id
+    )
+
+
+@transaction.atomic
+def marcar_alistado(*, pedido, usuario, ip=None):
+    """Da el pedido por alistado cuando cada línea tiene al menos un lote asignado (RF-34).
+
+    La cobertura puede ser parcial: lo pesado no siempre cuadra con lo pedido.
+    """
+    _exigir_operador(usuario)
+    pedido = _pedido_editable(pedido.pk)
+    lineas = list(pedido.lineas.select_related("producto"))
+    if not lineas:
+        raise EmbultajeInvalido("El pedido no tiene líneas.")
+    sin_lote = [linea.producto.nombre for linea in lineas if not linea.alistamientos.exists()]
+    if sin_lote:
+        raise EmbultajeInvalido(f"Falta asignar lotes a: {', '.join(sin_lote)}.")
+    anterior = instantanea(pedido)
+    pedido.estado = EstadoPedido.ALISTADO
+    pedido.usuario_alista = usuario
+    pedido.fecha_hora_alistamiento = timezone.now()
+    pedido.save(update_fields=["estado", "usuario_alista", "fecha_hora_alistamiento"])
+    _auditar(usuario, pedido, AccionAuditoria.MODIFICAR, ip, anterior=anterior)
+    return pedido
+
+
+@transaction.atomic
+def anular_pedido(*, pedido, usuario, observacion, ip=None):
+    """Anula un pedido sin despachar; solo el Gerente, y siempre con el motivo escrito.
+
+    Lo apartado queda libre para otros pedidos, porque un pedido anulado no compromete.
+    """
+    if not usuario.es_gerente:
+        raise PermissionDenied("Solo el Gerente anula pedidos.")
+    pedido = Pedido.objects.select_for_update().get(pk=pedido.pk)
+    if pedido.estado not in (EstadoPedido.CREADO, EstadoPedido.ALISTADO):
+        raise EmbultajeInvalido(
+            f"El pedido {pedido.consecutivo} está {pedido.get_estado_display().lower()}: "
+            "no se puede anular."
+        )
+    observacion = (observacion or "").strip()
+    if not observacion:
+        raise EmbultajeInvalido("Escriba por qué se anula el pedido.")
+    anterior = instantanea(pedido)
+    pedido.estado = EstadoPedido.ANULADO
+    pedido.usuario_anula = usuario
+    pedido.fecha_hora_anulacion = timezone.now()
+    pedido.observacion_anulacion = observacion
+    pedido.save(
+        update_fields=["estado", "usuario_anula", "fecha_hora_anulacion", "observacion_anulacion"]
+    )
+    _auditar(usuario, pedido, AccionAuditoria.MODIFICAR, ip, anterior=anterior)
+    return pedido

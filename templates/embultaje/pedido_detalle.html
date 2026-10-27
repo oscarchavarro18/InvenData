@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block titulo %}{{ pedido.consecutivo }} · InvenData{% endblock %}
+{% block encabezado %}Pedido{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'embultaje:pedido_lista' %}">← Volver a pedidos</a>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza">
+    <h2>{{ pedido.consecutivo }}</h2>
+    {% include "componentes/pill_pedido.html" with estado=pedido.estado %}
+  </div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Cliente</div><div class="dato__valor">{{ pedido.cliente.razon_social }}</div></div>
+    <div><div class="dato__etiqueta">Documento</div><div class="dato__valor">{{ pedido.cliente.tipo_documento }} {{ pedido.cliente.numero_documento }}</div></div>
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ pedido.fecha|date:"d/m/Y" }}</div></div>
+    <div><div class="dato__etiqueta">Creado por</div><div class="dato__valor">{{ pedido.usuario_crea.nombre_completo }}</div></div>
+    {% if pedido.usuario_alista %}
+    <div><div class="dato__etiqueta">Alistado</div><div class="dato__valor">{{ pedido.fecha_hora_alistamiento|date:"d/m/Y H:i" }} · {{ pedido.usuario_alista.nombre_completo }}</div></div>
+    {% endif %}
+    {% if pedido.estado == "ANULADO" %}
+    <div><div class="dato__etiqueta">Anulado</div><div class="dato__valor">{{ pedido.fecha_hora_anulacion|date:"d/m/Y H:i" }} · {{ pedido.usuario_anula.nombre_completo }}</div></div>
+    <div><div class="dato__etiqueta">Motivo</div><div class="dato__valor">{{ pedido.observacion_anulacion }}</div></div>
+    {% endif %}
+  </div>
+  {% if editable and filas %}
+  <div class="tarjeta__cuerpo">
+    <form method="post" action="{% url 'embultaje:pedido_alistar' pedido.pk %}" data-confirmar="¿Dar el pedido por alistado? Después ya no se pueden cambiar sus líneas ni sus lotes.">
+      {% csrf_token %}
+      <div class="formulario-pie">
+        <button class="boton" type="submit">Marcar como alistado</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+</section>
+
+{% for fila in filas %}
+<section class="tarjeta" id="linea-{{ fila.linea.pk }}">
+  <div class="tarjeta__cabeza">
+    <div>
+      <h2>{{ fila.linea.producto.nombre }}</h2>
+      <span class="tabla__secundario">{{ fila.linea.producto.codigo }}</span>
+    </div>
+    <div class="linea__cifras">
+      <div><div class="cifra__etiqueta">Solicitado</div><div class="cifra__valor">{{ fila.linea.cantidad_solicitada|floatformat:2 }} kg</div></div>
+      <div><div class="cifra__etiqueta">Asignado</div><div class="cifra__valor">{{ fila.asignado|floatformat:2 }} kg</div></div>
+      <div>
+        <div class="cifra__etiqueta">Falta</div>
+        <div class="cifra__valor">
+          {{ fila.pendiente|floatformat:2 }} kg
+          {% if fila.pendiente %}<span class="pill pill--ambar">Parcial</span>{% else %}<span class="pill pill--verde">Cubierta</span>{% endif %}
+        </div>
+      </div>
+      {% if editable and not fila.detalles %}
+      <form method="post" action="{% url 'embultaje:linea_quitar' fila.linea.pk %}" data-confirmar="¿Quitar esta línea del pedido?">
+        {% csrf_token %}
+        <button class="boton boton--peligro boton--chico" type="submit">Quitar</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada">
+      <thead>
+        <tr><th>Lote</th><th>Ubicación</th><th class="num">Cantidad</th><th>Criterio</th>{% if editable %}<th>Acción</th>{% endif %}</tr>
+      </thead>
+      <tbody>
+        {% for detalle in fila.detalles %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'inventario:lote_detalle' detalle.lote_id %}">{{ detalle.lote.codigo }}</a></td>
+          <td data-label="Ubicación">{{ detalle.ubicacion.nombre }}</td>
+          <td data-label="Cantidad" class="num">{{ detalle.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Criterio">
+            {% if detalle.sugerido_por_fifo %}<span class="pill pill--verde">FIFO</span>
+            {% else %}<span class="pill pill--ambar">Otro lote</span><span class="tabla__secundario">{{ detalle.justificacion_cambio }}</span>{% endif %}
+          </td>
+          {% if editable %}
+          <td>
+            <form method="post" action="{% url 'embultaje:alistamiento_quitar' detalle.pk %}">
+              {% csrf_token %}
+              <button class="boton boton--claro boton--chico" type="submit">Quitar</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if editable %}5{% else %}4{% endif %}" class="tabla__vacia">Todavía no tiene lotes asignados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if editable and fila.pendiente %}
+  <div class="tarjeta__cuerpo">
+    {% if fila.candidatos %}
+    <form method="post" action="{% url 'embultaje:linea_sugerir' fila.linea.pk %}">
+      {% csrf_token %}
+      <button class="boton" type="submit">Sugerir por FIFO</button>
+      <span class="campo__ayuda">Cubre lo que falta con los lotes que entraron primero.</span>
+    </form>
+    <form method="post" action="{% url 'embultaje:linea_asignar' fila.linea.pk %}" novalidate class="filtros filtros--campos">
+      {% csrf_token %}
+      {% for campo in fila.asignacion %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+      </div>
+      {% endfor %}
+      <button class="boton boton--claro" type="submit">Asignar otro lote</button>
+    </form>
+    {% else %}
+    <p class="vacio">No hay {{ fila.linea.producto.nombre }} disponible para alistar: todo está vencido, en proceso o comprometido en otros pedidos.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+{% empty %}
+<section class="tarjeta"><p class="vacio">El pedido no tiene líneas.</p></section>
+{% endfor %}
+
+{% if editable %}
+<form method="post" action="{% url 'embultaje:linea_agregar' pedido.pk %}" novalidate class="tarjeta">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>Agregar producto</h2></div>
+  <div class="tarjeta__cuerpo">
+    <div class="rejilla-form">
+      {% for campo in linea_form %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="formulario-pie"><button class="boton boton--claro" type="submit">Agregar línea</button></div>
+  </div>
+</form>
+{% endif %}
+
+{% if puede_anular %}
+<form method="post" action="{% url 'embultaje:pedido_anular' pedido.pk %}" novalidate class="tarjeta" data-confirmar="¿Anular el pedido {{ pedido.consecutivo }}? Sus lotes quedarán libres para otros pedidos.">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>Anular pedido</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% for campo in anulacion_form %}
+    <div class="campo">
+      <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      {{ campo }}
+    </div>
+    {% endfor %}
+    <div class="formulario-pie"><button class="boton boton--peligro" type="submit">Anular pedido</button></div>
+  </div>
+</form>
+{% endif %}
+
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+</script>
+{% endblock %}

@@ -4,9 +4,10 @@
 from decimal import Decimal
 
 from django import forms
+from django.utils import timezone
 
 from apps.core.forms import EstiloMixin
-from apps.maestros.models import TipoUbicacion, Ubicacion
+from apps.maestros.models import Cliente, Producto, TipoUbicacion, Ubicacion
 
 MINIMO_KG = Decimal("0.01")
 
@@ -61,3 +62,53 @@ class RegistroForm(EstiloMixin, forms.Form):
                 self.add_error("total_kilos", "Indique el total embultado.")
             datos["cantidad_bultos"] = datos["peso_por_bulto"] = None
         return datos
+
+
+class PedidoForm(EstiloMixin, forms.Form):
+    cliente = forms.ModelChoiceField(queryset=Cliente.objects.filter(activo=True))
+    fecha = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        initial=timezone.localdate,
+    )
+
+
+class LineaPedidoForm(EstiloMixin, forms.Form):
+    producto = forms.ModelChoiceField(queryset=Producto.objects.filter(activo=True))
+    cantidad_solicitada = forms.DecimalField(
+        label="Cantidad (kg)", max_digits=10, decimal_places=2, min_value=MINIMO_KG
+    )
+
+
+class AsignacionForm(EstiloMixin, forms.Form):
+    """Elegir a mano un lote para una línea; el primero de la lista es el sugerido por FIFO."""
+
+    candidato = forms.ChoiceField(label="Lote y ubicación")
+    cantidad = forms.DecimalField(
+        label="Cantidad (kg)", max_digits=10, decimal_places=2, min_value=MINIMO_KG
+    )
+    justificacion = forms.CharField(
+        label="Justificación si no usa el sugerido",
+        max_length=500,
+        required=False,
+    )
+
+    def __init__(self, *args, candidatos, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.candidatos = {c.clave: c for c in candidatos}
+        self.fields["candidato"].choices = [
+            (
+                c.clave,
+                f"{c.lote.codigo} · {c.ubicacion.nombre} · {c.disponible} kg"
+                + (" (sugerido FIFO)" if i == 0 else ""),
+            )
+            for i, c in enumerate(candidatos)
+        ]
+
+    def clean_candidato(self):
+        return self.candidatos[self.cleaned_data["candidato"]]
+
+
+class AnulacionForm(EstiloMixin, forms.Form):
+    observacion = forms.CharField(
+        label="Motivo de la anulación", max_length=500, widget=forms.Textarea(attrs={"rows": 2})
+    )

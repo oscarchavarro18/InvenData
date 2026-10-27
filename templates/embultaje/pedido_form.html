@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titulo %}Nuevo pedido · InvenData{% endblock %}
+{% block encabezado %}Nuevo pedido{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'embultaje:pedido_lista' %}">← Volver a pedidos</a>
+<form method="post" novalidate class="tarjeta tarjeta--angosta">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>Datos del pedido</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <p class="campo__ayuda">Después de crearlo podrá agregar las líneas y alistarlas con los lotes que sugiera FIFO.</p>
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{% url 'embultaje:pedido_lista' %}">Cancelar</a>
+      <button class="boton" type="submit">Crear pedido</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

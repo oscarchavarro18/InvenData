@@ -1,11 +1,15 @@
 """Consultas de lectura del embultaje. Aquí no se modifica nada."""
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import OuterRef, Subquery, Sum
+from django.utils import timezone
 
-from apps.inventario.models import Existencia
+from apps.embultaje.models import AlistamientoDetalle, EstadoPedido
+from apps.inventario.models import Existencia, Movimiento, TipoMovimiento
+from apps.maestros.models import TipoUbicacion
 
 CERO = Decimal("0")
 
@@ -53,3 +57,101 @@ def resumen_de_cierre(lote):
         else:
             resumen.pendiente.append(existencia)
     return resumen
+
+
+# De dónde se alista: lo embultado, lo que está en sostenimiento o en el túnel. La zona de
+# transformación tiene producto en proceso y el punto de venta no lleva lotes.
+UBICACIONES_DE_ALISTAMIENTO = [
+    TipoUbicacion.ZONA_BULTOS,
+    TipoUbicacion.SOSTENIMIENTO,
+    TipoUbicacion.TUNEL_CONGELACION,
+]
+# Lo planeado en estos pedidos ya está apartado: todavía no sale de bodega pero no se ofrece.
+ESTADOS_QUE_COMPROMETEN = [EstadoPedido.CREADO, EstadoPedido.ALISTADO]
+TIPOS_DE_ENTRADA = [
+    TipoMovimiento.RECEPCION,
+    TipoMovimiento.INVENTARIO_INICIAL,
+    TipoMovimiento.PRODUCCION_TRANSFORMACION,
+]
+
+
+@dataclass
+class Candidato:
+    """Un lote en una ubicación, con lo que se puede alistar de él hoy."""
+
+    existencia: Existencia
+    entrada: datetime | None
+    comprometido: Decimal
+
+    @property
+    def lote(self):
+        return self.existencia.lote
+
+    @property
+    def ubicacion(self):
+        return self.existencia.ubicacion
+
+    @property
+    def disponible(self):
+        return self.existencia.cantidad - self.comprometido
+
+    @property
+    def clave(self):
+        return f"{self.existencia.lote_id}-{self.existencia.ubicacion_id}"
+
+
+def comprometido_por_ubicacion(producto):
+    """Kg ya planeados en pedidos abiertos, por (lote, ubicación), para un producto."""
+    filas = (
+        AlistamientoDetalle.objects.filter(
+            lote__producto=producto,
+            pedido_linea__pedido__estado__in=ESTADOS_QUE_COMPROMETEN,
+        )
+        .values("lote_id", "ubicacion_id")
+        .annotate(total=Sum("cantidad"))
+        .order_by()
+    )
+    return {(f["lote_id"], f["ubicacion_id"]): f["total"] for f in filas}
+
+
+def candidatos_fifo(producto):
+    """Lotes del producto que se pueden alistar, del que entró primero al último (RF-33, RN-25).
+
+    El orden es la fecha de entrada a bodega (primer movimiento de entrada del lote), no la
+    creación del registro. Se excluyen los vencidos y lo que ya está comprometido en otros
+    pedidos; solo quedan los que tienen algo disponible.
+    """
+    primera_entrada = (
+        Movimiento.objects.filter(lote=OuterRef("lote"), tipo__in=TIPOS_DE_ENTRADA)
+        .order_by("fecha_hora")
+        .values("fecha_hora")[:1]
+    )
+    existencias = (
+        Existencia.objects.filter(
+            lote__producto=producto,
+            cantidad__gt=0,
+            ubicacion__tipo__in=UBICACIONES_DE_ALISTAMIENTO,
+            lote__fecha_vencimiento__gte=timezone.localdate(),
+        )
+        .select_related("lote", "ubicacion")
+        .annotate(entrada=Subquery(primera_entrada))
+    )
+    comprometido = comprometido_por_ubicacion(producto)
+    candidatos = [
+        Candidato(
+            existencia=e,
+            entrada=e.entrada,
+            comprometido=comprometido.get((e.lote_id, e.ubicacion_id), CERO),
+        )
+        for e in existencias
+    ]
+    # Sin fecha de entrada (no debería pasar) va al final; a igual fecha, por código.
+    candidatos.sort(
+        key=lambda c: (
+            c.entrada is None,
+            c.entrada.timestamp() if c.entrada else 0,
+            c.lote.codigo,
+            c.ubicacion.codigo,
+        )
+    )
+    return [c for c in candidatos if c.disponible > CERO]
