@@ -83,9 +83,17 @@
       </a>
       {% endif %}
       {% if user.ve_algun_punto_venta %}
-      <a class="menu__item{% if ruta.namespace == 'puntoventa' %} menu__item--activo{% endif %}" href="{% url 'puntoventa:existencias' %}"{% if ruta.namespace == 'puntoventa' %} aria-current="page"{% endif %}>
+      <a class="menu__item{% if ruta.namespace == 'puntoventa' and ruta.url_name|slice:':5' == 'venta' %} menu__item--activo{% endif %}" href="{% url 'puntoventa:venta_lista' %}"{% if ruta.namespace == 'puntoventa' and ruta.url_name|slice:':5' == 'venta' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.6 12.4a1 1 0 0 0 1 .8h9.7a1 1 0 0 0 1-.8L21 8H6"/></svg>
+        Ventas
+      </a>
+      <a class="menu__item{% if ruta.namespace == 'puntoventa' and ruta.url_name == 'existencias' %} menu__item--activo{% endif %}" href="{% url 'puntoventa:existencias' %}"{% if ruta.namespace == 'puntoventa' and ruta.url_name == 'existencias' %} aria-current="page"{% endif %}>
         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
         Existencia PDV
+      </a>
+      <a class="menu__item{% if ruta.namespace == 'puntoventa' and ruta.url_name == 'historial' %} menu__item--activo{% endif %}" href="{% url 'puntoventa:historial' %}"{% if ruta.namespace == 'puntoventa' and ruta.url_name == 'historial' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Historial PDV
       </a>
       {% endif %}
     </nav>

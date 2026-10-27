@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block titulo %}Ventas · InvenData{% endblock %}
+{% block encabezado %}Ventas del punto de venta{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">{% if punto %}{{ punto.nombre }}. {% endif %}Cada venta descuenta la existencia del punto en el momento de registrarla.</p>
+  <div class="barra__acciones">
+    {% if puede_vender %}
+    <a class="boton" href="{% url 'puntoventa:venta_nueva' 'consumidor' %}?ubicacion={{ punto.pk }}">Venta a consumidor final</a>
+    <a class="boton boton--claro" href="{% url 'puntoventa:venta_nueva' 'restaurante' %}?ubicacion={{ punto.pk }}">Remisión a restaurante</a>
+    {% endif %}
+  </div>
+</div>
+<div class="tarjeta">
+  {% include "puntoventa/_elegir_punto.html" %}
+  <nav class="filtros" aria-label="Canal de venta">
+    {% for clave, canal in canales.items %}
+    <a class="boton boton--chico{% if clave != tipo %} boton--claro{% endif %}" href="?tipo={{ clave }}{% if punto %}&amp;ubicacion={{ punto.pk }}{% endif %}"{% if clave == tipo %} aria-current="page"{% endif %}>{{ canal.titulo }}</a>
+    {% endfor %}
+  </nav>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr>
+          <th>{% if tipo == "consumidor" %}Factura Siigo{% else %}Remisión{% endif %}</th>
+          {% if tipo == "restaurante" %}<th>Restaurante</th>{% endif %}
+          <th>Fecha</th><th class="num">Productos</th><th class="num">Total</th><th>Atendió</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for venta in pagina %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'puntoventa:venta_detalle' tipo venta.pk %}">{% if tipo == "consumidor" %}{{ venta.numero_factura_siigo }}{% else %}{{ venta.numero_documento }}{% endif %}</a></td>
+          {% if tipo == "restaurante" %}<td data-label="Restaurante">{{ venta.cliente.razon_social }}</td>{% endif %}
+          <td data-label="Fecha">{{ venta.fecha|date:"d/m/Y" }}</td>
+          <td data-label="Productos" class="num">{{ venta.n_productos }}</td>
+          <td data-label="Total" class="num">{{ venta.kg|floatformat:2 }} kg</td>
+          <td data-label="Atendió">{{ venta.usuario.nombre_completo }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="tabla__vacia">Todavía no hay ventas por este canal.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}
