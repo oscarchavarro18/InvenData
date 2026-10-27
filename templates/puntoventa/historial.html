@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titulo %}Historial del punto de venta · InvenData{% endblock %}
+{% block encabezado %}Historial del punto de venta{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">{% if punto %}{{ punto.nombre }}. {% endif %}Entradas por traslado aceptado y salidas por venta en el rango de fechas.</p>
+</div>
+<div class="tarjeta">
+  <form method="get" class="filtros filtros--campos">
+    {% if puntos|length > 1 %}
+    <div class="campo">
+      <label class="etiqueta" for="id_ubicacion">Punto de venta</label>
+      <select class="form-select" name="ubicacion" id="id_ubicacion">
+        {% for p in puntos %}<option value="{{ p.pk }}"{% if punto and p.pk == punto.pk %} selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% for campo in form %}
+    <div class="campo">
+      <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      {{ campo }}
+    </div>
+    {% endfor %}
+    <button class="boton boton--claro" type="submit">Consultar</button>
+  </form>
+  {% if form.non_field_errors %}
+  <div class="tarjeta__cuerpo"><div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div></div>
+  {% endif %}
+  <div class="datos">
+    <div><div class="dato__etiqueta">Entró</div><div class="dato__valor">{{ entradas|floatformat:2 }} kg</div></div>
+    <div><div class="dato__etiqueta">Se vendió</div><div class="dato__valor">{{ ventas|floatformat:2 }} kg</div></div>
+  </div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Fecha y hora</th><th>Movimiento</th><th>Producto</th><th class="num">Cantidad</th><th>Registró</th></tr></thead>
+      <tbody>
+        {% for movimiento in pagina %}
+        <tr>
+          <td class="tabla__principal">{{ movimiento.fecha_hora|date:"d/m/Y H:i" }}</td>
+          <td data-label="Movimiento">
+            {% if movimiento.entrada %}<span class="pill pill--verde">Entrada</span>{% else %}<span class="pill pill--azul">Salida</span>{% endif %}
+            {{ movimiento.get_tipo_display }}
+          </td>
+          <td data-label="Producto">{{ movimiento.producto.nombre }}</td>
+          <td data-label="Cantidad" class="num">{% if not movimiento.entrada %}−{% endif %}{{ movimiento.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Registró">{{ movimiento.usuario.nombre_completo }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="tabla__vacia">No hay movimientos en ese rango.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}

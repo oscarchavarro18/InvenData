@@ -91,6 +91,22 @@
   </section>
 </div>
 {% else %}
+{% if ventas_hoy %}
+<section class="indicadores" aria-label="Indicadores del punto">
+  <div class="indicador">
+    <div class="indicador__etiqueta">Ventas de hoy</div>
+    <div class="indicador__valor">{{ ventas_hoy.ventas }}</div>
+  </div>
+  <div class="indicador">
+    <div class="indicador__etiqueta">Vendido hoy</div>
+    <div class="indicador__valor">{{ ventas_hoy.kg|floatformat:2 }} <small>kg</small></div>
+  </div>
+  <div class="indicador">
+    <div class="indicador__etiqueta">Traslados por recibir</div>
+    <div class="indicador__valor{% if por_recibir %} indicador__valor--critico{% endif %}">{{ por_recibir|length }}</div>
+  </div>
+</section>
+{% endif %}
 <section class="tarjeta">
   <div class="tarjeta__cabeza">
     <h2>Traslados por recibir</h2>
@@ -114,7 +130,7 @@
   </div>
 </section>
 <section class="tarjeta">
-  <p class="vacio">Las ventas llegarán con el módulo de punto de venta. Mientras tanto puede recibir traslados, consultar la <a href="{% url 'puntoventa:existencias' %}">existencia de su punto</a> y el catálogo de productos.</p>
+  <p class="vacio">Desde el módulo de punto de venta registra las <a href="{% url 'puntoventa:venta_lista' %}">ventas</a>, consulta la <a href="{% url 'puntoventa:existencias' %}">existencia de su punto</a> y su <a href="{% url 'puntoventa:historial' %}">historial</a>.</p>
 </section>
 {% endif %}
 {% endblock %}

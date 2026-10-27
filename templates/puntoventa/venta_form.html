@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Nueva venta · InvenData{% endblock %}
+{% block encabezado %}Nueva venta · {{ canal.titulo }}{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'puntoventa:venta_lista' %}?tipo={{ tipo }}&amp;ubicacion={{ punto.pk }}">← Volver a ventas</a>
+
+{% if puntos|length > 1 %}
+<div class="tarjeta">{% include "puntoventa/_elegir_punto.html" %}</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate class="tarjeta">
+  {% csrf_token %}
+  <input type="hidden" name="ubicacion" value="{{ punto.pk }}">
+  {{ formset.management_form }}
+  <div class="tarjeta__cabeza"><h2>{{ punto.nombre }}</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    {% if tipo == "consumidor" %}
+    <div class="rejilla-form">
+      <div class="campo">
+        <label class="etiqueta" for="{{ form.numero_factura_siigo.id_for_label }}">{{ form.numero_factura_siigo.label }}</label>
+        {{ form.numero_factura_siigo }}
+        {% for error in form.numero_factura_siigo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+        <div class="campo__ayuda">Primero facture en Siigo; aquí solo se registra su número (RD-01).</div>
+      </div>
+    </div>
+    {% else %}
+    <div class="rejilla-form">
+      <div class="campo campo--ancho">
+        <label class="etiqueta" for="{{ form.cliente.id_for_label }}">{{ form.cliente.label }}</label>
+        {{ form.cliente }}
+        {% for error in form.cliente.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+        <div class="campo__ayuda">Si el restaurante no aparece, pídale al Gerente que lo registre.</div>
+      </div>
+    </div>
+    <fieldset class="tarjeta__cuerpo" data-autorizacion>
+      <legend class="etiqueta">Autorización de datos personales (Ley 1581 de 2012)</legend>
+      <p class="campo__ayuda">Solo se pide una vez por cliente. Si el restaurante elegido dice «sin autorización», pregúntele antes de registrar la remisión. Si no autoriza, véndale como consumidor final.</p>
+      <div class="campo campo--casilla">
+        {{ form.autoriza_datos }}
+        <label class="etiqueta" for="{{ form.autoriza_datos.id_for_label }}">{{ form.autoriza_datos.label }}</label>
+      </div>
+      <div class="campo">
+        <label class="etiqueta" for="{{ form.evidencia.id_for_label }}">{{ form.evidencia.label }}</label>
+        {{ form.evidencia }}
+      </div>
+    </fieldset>
+    {% endif %}
+  </div>
+
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada tabla--formulario">
+      <thead><tr><th>Producto</th><th>Cantidad (kg)</th></tr></thead>
+      <tbody>
+        {% for linea in formset %}
+        <tr>
+          <td data-label="Producto">{{ linea.producto }}{% for error in linea.producto.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}</td>
+          <td data-label="Cantidad (kg)">{{ linea.cantidad }}{% for error in linea.cantidad.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tarjeta__cuerpo">
+    {% if not disponibles %}
+    <p class="vacio">El punto no tiene producto disponible. Llega cuando acepta un traslado de bodega.</p>
+    {% endif %}
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{% url 'puntoventa:venta_lista' %}?tipo={{ tipo }}&amp;ubicacion={{ punto.pk }}">Cancelar</a>
+      <button class="boton" type="submit">Registrar venta</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

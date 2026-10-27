@@ -6,7 +6,10 @@ patrón que la bodega: un libro de movimientos que es la fuente de verdad y una 
 que es su proyección en vivo (RNF-03). Solo cambia con
 `apps.puntoventa.servicios.registrar_movimiento_pdv()`.
 
-Las ventas (venta_consumidor_final, venta_restaurante_remision y sus líneas) llegan con M7.
+Ventas: dos canales con la misma salida de inventario (RF-46, RF-47, RN-33). Al consumidor
+final, ligada a la factura que ya generó Siigo (RD-01); al restaurante, con una remisión
+propia del sistema y el cliente identificado. Cada línea descuenta de inmediato con un
+movimiento VENTA (RN-31). Una venta no se edita ni se borra: se corrige con M8.
 """
 
 from django.conf import settings
@@ -16,7 +19,7 @@ from django.utils import timezone
 
 from apps.core.models import ModeloCreacion
 from apps.inventario.models import MotivoAjuste
-from apps.maestros.models import Producto, Ubicacion
+from apps.maestros.models import Cliente, Producto, Ubicacion
 
 
 class TipoMovimientoPdv(models.TextChoices):
@@ -115,3 +118,115 @@ class ExistenciaPuntoVenta(models.Model):
 
     def __str__(self):
         return f"Producto {self.producto_id} en {self.ubicacion_id}: {self.cantidad}"
+
+
+class VentaConsumidorFinal(ModeloCreacion):
+    """Venta a un consumidor final, con el número de la factura que generó Siigo (RF-46)."""
+
+    ubicacion = models.ForeignKey(
+        Ubicacion, on_delete=models.PROTECT, related_name="ventas_consumidor"
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="ventas_consumidor"
+    )
+    fecha = models.DateField()
+    numero_factura_siigo = models.CharField(max_length=30, unique=True)
+
+    class Meta:
+        db_table = "venta_consumidor_final"
+        verbose_name = "venta a consumidor final"
+        verbose_name_plural = "ventas a consumidor final"
+        ordering = ["-fecha", "-id"]
+        indexes = [models.Index(fields=["ubicacion", "fecha"], name="venta_cf_ubicacion_fecha_idx")]
+        constraints = [
+            models.CheckConstraint(
+                condition=~Q(numero_factura_siigo=""), name="venta_cf_factura_no_vacia"
+            )
+        ]
+
+    def __str__(self):
+        return f"Factura {self.numero_factura_siigo}"
+
+
+class VentaConsumidorFinalLinea(ModeloCreacion):
+    venta_consumidor_final = models.ForeignKey(
+        VentaConsumidorFinal, on_delete=models.PROTECT, related_name="lineas"
+    )
+    producto = models.ForeignKey(
+        Producto, on_delete=models.PROTECT, related_name="lineas_venta_consumidor"
+    )
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        db_table = "venta_consumidor_final_linea"
+        verbose_name = "línea de venta a consumidor final"
+        verbose_name_plural = "líneas de venta a consumidor final"
+        ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(cantidad__gt=0), name="venta_cf_linea_cantidad_positiva"
+            ),
+            models.UniqueConstraint(
+                fields=["venta_consumidor_final", "producto"], name="venta_cf_linea_producto_unico"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.producto} · {self.cantidad}"
+
+
+class VentaRestauranteRemision(ModeloCreacion):
+    """Venta a un restaurante con remisión propia, sin factura de Siigo (RF-47, RN-33)."""
+
+    numero_documento = models.CharField(max_length=20, unique=True)  # ej. "RM-000012"
+    fecha = models.DateField()
+    ubicacion = models.ForeignKey(
+        Ubicacion, on_delete=models.PROTECT, related_name="ventas_restaurante"
+    )
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.PROTECT, related_name="ventas_restaurante"
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="ventas_restaurante"
+    )
+
+    class Meta:
+        db_table = "venta_restaurante_remision"
+        verbose_name = "venta a restaurante"
+        verbose_name_plural = "ventas a restaurante"
+        ordering = ["-fecha", "-id"]
+        indexes = [
+            models.Index(fields=["ubicacion", "fecha"], name="venta_rr_ubicacion_fecha_idx"),
+            models.Index(fields=["cliente"], name="venta_rr_cliente_idx"),
+        ]
+
+    def __str__(self):
+        return f"Remisión {self.numero_documento}"
+
+
+class VentaRestauranteRemisionLinea(ModeloCreacion):
+    venta_restaurante_remision = models.ForeignKey(
+        VentaRestauranteRemision, on_delete=models.PROTECT, related_name="lineas"
+    )
+    producto = models.ForeignKey(
+        Producto, on_delete=models.PROTECT, related_name="lineas_venta_restaurante"
+    )
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        db_table = "venta_restaurante_remision_linea"
+        verbose_name = "línea de remisión a restaurante"
+        verbose_name_plural = "líneas de remisión a restaurante"
+        ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(cantidad__gt=0), name="venta_rr_linea_cantidad_positiva"
+            ),
+            models.UniqueConstraint(
+                fields=["venta_restaurante_remision", "producto"],
+                name="venta_rr_linea_producto_unico",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.producto} · {self.cantidad}"

@@ -10,6 +10,7 @@ from apps.inventario.consultas import (
     lotes_con_existencia,
     lotes_por_vencer,
 )
+from apps.puntoventa.consultas import ventas_del_dia
 from apps.recepcion.models import DocumentoProveedor, EstadoDocumento
 
 
@@ -28,13 +29,16 @@ def inicio(request):
     """Tablero: indicadores del día, últimas recepciones y lotes próximos a vencer.
 
     El administrador de punto de venta no ve nada de la bodega (RN-06): ve los traslados que
-    tiene por recibir; el resto de su tablero llega con M7.
+    tiene por recibir y sus ventas del día (M7).
     """
     if not request.user.ve_bodega:
         por_recibir = TrasladoPdv.objects.filter(
             ubicacion_destino_id=request.user.ubicacion_id, estado=EstadoTraslado.ENVIADO
         )
-        return render(request, "inicio.html", {"por_recibir": por_recibir})
+        contexto = {"por_recibir": por_recibir}
+        if request.user.es_admin_pdv:
+            contexto["ventas_hoy"] = ventas_del_dia(request.user.ubicacion)
+        return render(request, "inicio.html", contexto)
     por_vencer = lotes_por_vencer()
     contexto = {
         "documentos_abiertos": DocumentoProveedor.objects.filter(

@@ -1,0 +1,9 @@
+{% if puntos|length > 1 %}
+<form method="get" class="filtros">
+  {% if tipo %}<input type="hidden" name="tipo" value="{{ tipo }}">{% endif %}
+  <select class="form-select" name="ubicacion" aria-label="Punto de venta">
+    {% for p in puntos %}<option value="{{ p.pk }}"{% if punto and p.pk == punto.pk %} selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+  </select>
+  <button class="boton boton--claro" type="submit">Ver</button>
+</form>
+{% endif %}
