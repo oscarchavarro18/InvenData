@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 
+from apps.maestros.forms import ParametroForm
 from apps.maestros.models import (
     CategoriaProducto,
     Cliente,
@@ -123,9 +124,9 @@ def test_tara_se_guarda_con_dos_decimales(db):
 
 
 def test_clave_de_parametro_es_unica(db):
-    Parametro.objects.create(clave="TOLERANCIA_BALANCE_PCT", valor="2")
+    Parametro.objects.create(clave="DIAS_POR_VENCER", valor="7")
     with pytest.raises(IntegrityError), transaction.atomic():
-        Parametro.objects.create(clave="TOLERANCIA_BALANCE_PCT", valor="3")
+        Parametro.objects.create(clave="DIAS_POR_VENCER", valor="8")
 
 
 RUTAS_ADMIN = [
@@ -152,3 +153,19 @@ def test_otros_perfiles_no_administran_maestros(client, jefe_bodega, modelo):
     respuesta = client.get(f"/admin/maestros/{modelo}/")
     assert respuesta.status_code == 302
     assert respuesta.url.startswith("/admin/login/")
+
+
+@pytest.mark.parametrize(
+    ("valor", "valido"), [("5", True), ("2,5 %", True), ("abc", False), ("150", False)]
+)
+def test_el_panel_valida_la_tolerancia_de_balance(db, valor, valido):
+    """RF-27: un valor mal escrito bloquearía todas las confirmaciones de transformación."""
+    tolerancia = Parametro.objects.get(clave="TOLERANCIA_BALANCE_PCT")
+    form = ParametroForm(
+        data={"clave": "TOLERANCIA_BALANCE_PCT", "valor": valor}, instance=tolerancia
+    )
+    assert form.is_valid() is valido
+
+
+def test_los_demas_parametros_no_se_interpretan(db):
+    assert ParametroForm(data={"clave": "NOTA_LIBRE", "valor": "cualquier texto"}).is_valid()

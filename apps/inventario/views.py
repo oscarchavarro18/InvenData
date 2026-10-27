@@ -19,6 +19,7 @@ from apps.inventario.consultas import (
     kg_en_bodega,
     lotes_con_existencia,
     lotes_por_vencer,
+    orden_de_origen,
 )
 from apps.inventario.forms import TrasladoForm
 from apps.inventario.models import Existencia, Lote
@@ -74,6 +75,7 @@ def lote_detalle(request, pk):
         "existencias": existencias_lote,
         "total": sum(e.cantidad for e in existencias_lote),
         "derivados": lote.derivados.select_related("producto"),
+        "orden_origen": orden_de_origen(lote),
         "pagina": pagina,
         "consulta": consulta,
         "hoy": timezone.localdate(),

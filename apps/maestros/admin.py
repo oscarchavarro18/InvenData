@@ -8,6 +8,7 @@ from django.contrib import admin
 
 from apps.auditoria.mixins import AuditoriaAdminMixin
 
+from .forms import ParametroForm
 from .models import (
     CategoriaProducto,
     Cliente,
@@ -88,5 +89,6 @@ class TipoEmbalajeAdmin(MaestroAdmin):
 
 @admin.register(Parametro)
 class ParametroAdmin(MaestroAdmin):
+    form = ParametroForm
     list_display = ("clave", "valor", "descripcion")
     search_fields = ("clave", "descripcion")

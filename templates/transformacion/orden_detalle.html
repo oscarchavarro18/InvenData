@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block titulo %}{{ orden.consecutivo }} · InvenData{% endblock %}
+{% block encabezado %}Orden de transformación{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'transformacion:orden_lista' %}">← Volver a transformación</a>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza">
+    <h2>{{ orden.consecutivo }}</h2>
+    {% include "componentes/pill_orden.html" with estado=orden.estado %}
+  </div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Lote de origen</div><div class="dato__valor"><a href="{% url 'inventario:lote_detalle' orden.lote_origen_id %}">{{ orden.lote_origen.codigo }}</a></div></div>
+    <div><div class="dato__etiqueta">Producto</div><div class="dato__valor">{{ orden.lote_origen.producto.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Sale de</div><div class="dato__valor">{{ orden.ubicacion_origen.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Masa consumida</div><div class="dato__valor">{{ orden.cantidad_consumida|floatformat:2 }} kg</div></div>
+    <div><div class="dato__etiqueta">Registrada por</div><div class="dato__valor">{{ orden.usuario.nombre_completo }}</div></div>
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ orden.fecha_hora|date:"d/m/Y H:i" }}</div></div>
+  </div>
+</section>
+
+{% if orden.estado == "CONFIRMADA" %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Balance de masa</h2></div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Masa de salida</div><div class="dato__valor">{{ orden.masa_salida|floatformat:2 }} kg</div></div>
+    <div><div class="dato__etiqueta">Merma</div><div class="dato__valor">{{ orden.merma_kg|floatformat:2 }} kg</div></div>
+    <div>
+      <div class="dato__etiqueta">Cierre</div>
+      <div class="dato__valor">
+        {{ orden.porcentaje_cierre|floatformat:2 }} %
+        {% if orden.dentro_tolerancia %}<span class="pill pill--verde">Dentro de tolerancia</span>{% else %}<span class="pill pill--rojo">Fuera de tolerancia</span>{% endif %}
+      </div>
+    </div>
+    {% if orden.observacion %}
+    <div><div class="dato__etiqueta">Observación</div><div class="dato__valor">{{ orden.observacion }}</div></div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Derivados</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr><th>Lote</th><th>Producto</th><th class="num">Cantidad</th><th>Destino</th><th>Estado</th><th>Vence</th></tr>
+      </thead>
+      <tbody>
+        {% for derivado in derivados %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'inventario:lote_detalle' derivado.lote_derivado_id %}">{{ derivado.lote_derivado.codigo }}</a></td>
+          <td data-label="Producto">{{ derivado.producto.nombre }}</td>
+          <td data-label="Cantidad" class="num">{{ derivado.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Destino">{{ derivado.ubicacion_destino.nombre }}</td>
+          <td data-label="Estado"><span class="pill pill--azul">{{ derivado.lote_derivado.get_estado_producto_display }}</span></td>
+          <td data-label="Vence">{{ derivado.lote_derivado.fecha_vencimiento|date:"d/m/Y" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% elif puede_operar %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza">
+    <h2>Borrador</h2>
+    <form method="post" action="{% url 'transformacion:orden_eliminar' orden.pk %}" data-confirmar="¿Eliminar esta orden en borrador?">
+      {% csrf_token %}
+      <button class="boton boton--peligro boton--chico" type="submit">Eliminar orden</button>
+    </form>
+  </div>
+  <form method="post" action="{% url 'transformacion:orden_editar' orden.pk %}" novalidate class="tarjeta__cuerpo">
+    {% csrf_token %}
+    {% if edicion.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ edicion.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in edicion %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <p class="campo__ayuda">Mientras la orden esté en borrador no mueve la existencia (RF-29). Para cambiar el lote o la ubicación de origen, elimine la orden y cree otra.</p>
+    <div class="formulario-pie">
+      <button class="boton boton--claro" type="submit">Guardar cantidad</button>
+    </div>
+  </form>
+</section>
+
+<form method="post" action="{% url 'transformacion:orden_confirmar' orden.pk %}" novalidate class="tarjeta" data-confirmar="¿Confirmar la transformación? Se descontará el lote de origen y se crearán los lotes derivados; después no se puede editar." data-balance data-consumida="{{ orden.cantidad_consumida|stringformat:'s' }}" data-tolerancia="{{ tolerancia|default_if_none:''|stringformat:'s' }}">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  <div class="tarjeta__cabeza"><h2>Derivados y confirmación</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if confirmacion.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ confirmacion.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    {% if formset.non_form_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ formset.non_form_errors|join:" " }}</span></div>
+    {% endif %}
+    <p class="campo__ayuda">Registre cada producto obtenido con su peso. Las filas que deje sin tocar se ignoran. Al confirmar se descuenta el lote de origen y se crea un lote nuevo por cada derivado.</p>
+  </div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada tabla--formulario">
+      <thead>
+        <tr><th>Producto</th><th>Cantidad (kg)</th><th>Destino</th><th>Estado</th><th>Vence</th></tr>
+      </thead>
+      <tbody>
+        {% for form in formset %}
+        <tr>
+          {% for campo in form %}
+          <td data-label="{{ campo.label }}">
+            {{ campo }}
+            {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="datos" aria-live="polite">
+    <div><div class="dato__etiqueta">Masa de salida</div><div class="dato__valor" data-salida>—</div></div>
+    <div><div class="dato__etiqueta">Merma</div><div class="dato__valor" data-merma>—</div></div>
+    <div><div class="dato__etiqueta">Cierre</div><div class="dato__valor" data-cierre>—</div></div>
+    <div><div class="dato__etiqueta">Tolerancia</div><div class="dato__valor">{% if tolerancia is not None %}{{ tolerancia }} %{% else %}Sin configurar ({{ clave_tolerancia }}){% endif %}</div></div>
+  </div>
+  <div class="tarjeta__cuerpo">
+    <div class="rejilla-form">
+      {% for campo in confirmacion %}
+      <div class="campo campo--ancho">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% if campo.help_text %}<div class="campo__ayuda">{{ campo.help_text }}</div>{% endif %}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="formulario-pie">
+      <button class="boton" type="submit">Confirmar transformación</button>
+    </div>
+  </div>
+</form>
+
+{% else %}
+<section class="tarjeta">
+  <p class="vacio">La orden está en borrador: el corte o reempaque todavía no se ha confirmado.</p>
+</section>
+{% endif %}
+
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+
+  // Balance de masa en vivo (RF-25 a RF-27); el valor que cuenta lo calcula el servidor.
+  document.querySelectorAll("form[data-balance]").forEach(function (form) {
+    var consumida = parseFloat(form.getAttribute("data-consumida"));
+    var tolerancia = parseFloat(form.getAttribute("data-tolerancia"));
+    var salida = form.querySelector("[data-salida]");
+    var merma = form.querySelector("[data-merma]");
+    var cierre = form.querySelector("[data-cierre]");
+    function kg(valor) { return valor.toFixed(2).replace(".", ",") + " kg"; }
+    function calcular() {
+      var total = 0;
+      form.querySelectorAll("input[name$='-cantidad']").forEach(function (campo) {
+        var valor = parseFloat(campo.value);
+        if (!isNaN(valor)) { total += valor; }
+      });
+      if (!total) { salida.textContent = merma.textContent = cierre.textContent = "—"; return; }
+      var porcentaje = total / consumida * 100;
+      salida.textContent = kg(total);
+      merma.textContent = kg(consumida - total);
+      var dentro = !isNaN(tolerancia) && porcentaje >= 100 - tolerancia && porcentaje <= 100;
+      cierre.textContent = porcentaje.toFixed(2).replace(".", ",") + " % · " +
+        (dentro ? "dentro de tolerancia" : "fuera de tolerancia: requiere observación");
+    }
+    form.addEventListener("input", calcular);
+    calcular();
+  });
+</script>
+{% endblock %}

@@ -613,6 +613,21 @@ svg {
 .tabla--densa td:first-child {
   padding-left: 20px;
 }
+/* Tablas con un formulario por fila: cada campo conserva un ancho legible y, si no caben,
+   la tabla se desliza dentro de .tabla-caja en lugar de cortar el texto de las listas. */
+.tabla--formulario td {
+  vertical-align: top;
+}
+.tabla--formulario .form-control,
+.tabla--formulario .form-select {
+  min-width: 8.5rem;
+}
+.tabla--formulario td:first-child .form-select {
+  min-width: 13rem;
+}
+.tabla--formulario .form-select[name$="-ubicacion_destino"] {
+  min-width: 12rem;
+}
 .tabla .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
