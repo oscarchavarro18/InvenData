@@ -106,6 +106,19 @@ class Usuario(AbstractBaseUser, ModeloBase):
         )
 
     @property
+    def ve_bodega(self):
+        """Quien consulta la bodega: todos menos el administrador de punto de venta (RN-06)."""
+        return self.activo and self.perfil.codigo != Perfil.Codigo.ADMIN_PDV
+
+    @property
+    def puede_operar_bodega(self):
+        """Quien mueve inventario dentro de la bodega: gerente y jefe de bodega (RF-02, RF-19)."""
+        return self.activo and self.perfil.codigo in (
+            Perfil.Codigo.GERENTE,
+            Perfil.Codigo.JEFE_BODEGA,
+        )
+
+    @property
     def is_staff(self):
         return self.es_gerente
 

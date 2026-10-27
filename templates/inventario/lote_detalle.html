@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block titulo %}Lote {{ lote.codigo }} · InvenData{% endblock %}
+{% block encabezado %}Historial del lote{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'inventario:existencias' %}">← Volver al inventario</a>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza">
+    <div>
+      <h2>Lote {{ lote.codigo }}</h2>
+      <span class="tabla__secundario">{{ lote.producto.nombre }} · {{ lote.producto.codigo }}</span>
+    </div>
+    <span class="pill pill--azul">{{ lote.get_estado_producto_display }}</span>
+  </div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Origen</div><div class="dato__valor">{{ lote.get_origen_display }}</div></div>
+    {% if lote.documento_proveedor_linea %}
+    <div><div class="dato__etiqueta">Documento del proveedor</div><div class="dato__valor"><a href="{% url 'recepcion:documento_detalle' lote.documento_proveedor_linea.documento_proveedor_id %}">{{ lote.documento_proveedor_linea.documento_proveedor }}</a></div></div>
+    {% endif %}
+    {% if lote.lote_origen %}
+    <div><div class="dato__etiqueta">Lote de origen</div><div class="dato__valor"><a href="{% url 'inventario:lote_detalle' lote.lote_origen.pk %}">{{ lote.lote_origen.codigo }}</a></div></div>
+    {% endif %}
+    <div>
+      <div class="dato__etiqueta">Vence</div>
+      <div class="dato__valor">
+        {{ lote.fecha_vencimiento|date:"d/m/Y" }}
+        {% if lote.fecha_vencimiento < hoy %}<span class="pill pill--rojo">Vencido</span>{% endif %}
+      </div>
+    </div>
+    <div><div class="dato__etiqueta">Estado</div><div class="dato__valor">{{ lote.get_estado_display }}</div></div>
+    <div><div class="dato__etiqueta">Existencia total</div><div class="dato__valor">{{ total|floatformat:2 }} kg</div></div>
+  </div>
+</section>
+
+<div class="dos-columnas">
+  <section class="tarjeta">
+    <div class="tarjeta__cabeza"><h2>Dónde está hoy</h2></div>
+    <div class="tabla-caja">
+      <table class="tabla tabla--densa tabla--apilada">
+        <thead>
+          <tr><th>Ubicación</th><th class="num">Cantidad</th>{% if user.puede_operar_bodega %}<th>Acción</th>{% endif %}</tr>
+        </thead>
+        <tbody>
+          {% for existencia in existencias %}
+          <tr>
+            <td class="tabla__principal">{{ existencia.ubicacion.nombre }}</td>
+            <td data-label="Cantidad" class="num">{{ existencia.cantidad|floatformat:2 }} kg</td>
+            {% if user.puede_operar_bodega %}
+            <td><a class="boton boton--claro boton--chico" href="{% url 'inventario:trasladar' lote.pk existencia.ubicacion.pk %}">Trasladar</a></td>
+            {% endif %}
+          </tr>
+          {% empty %}
+          <tr><td colspan="{% if user.puede_operar_bodega %}3{% else %}2{% endif %}" class="tabla__vacia">El lote ya no tiene existencia en bodega.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="tarjeta">
+    <div class="tarjeta__cabeza"><h2>Lotes derivados</h2></div>
+    <div class="tabla-caja">
+      <table class="tabla tabla--densa tabla--apilada">
+        <thead>
+          <tr><th>Lote</th><th>Producto</th></tr>
+        </thead>
+        <tbody>
+          {% for derivado in derivados %}
+          <tr>
+            <td><a class="tabla__principal" href="{% url 'inventario:lote_detalle' derivado.pk %}">{{ derivado.codigo }}</a></td>
+            <td data-label="Producto">{{ derivado.producto.nombre }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="2" class="tabla__vacia">No se han obtenido otros lotes de este.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Movimientos</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr>
+          <th>Fecha y hora</th>
+          <th>Tipo</th>
+          <th>Sentido</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th class="num">Cantidad</th>
+          <th>Usuario</th>
+          <th>Observación</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for movimiento in pagina %}
+        <tr>
+          <td class="tabla__principal">{{ movimiento.fecha_hora|date:"d/m/Y H:i" }}</td>
+          <td data-label="Tipo">
+            {{ movimiento.get_tipo_display }}
+            {% if movimiento.motivo_ajuste %}<span class="tabla__secundario">{{ movimiento.get_motivo_ajuste_display }}</span>{% endif %}
+            {% if movimiento.movimiento_reversado_id %}<span class="pill pill--ambar">Reverso</span>{% endif %}
+            {% if movimiento.reversado %}<span class="pill pill--gris">Reversado</span>{% endif %}
+          </td>
+          <td data-label="Sentido">
+            {% if movimiento.sentido == "ENTRADA" %}<span class="pill pill--verde">Entrada</span>
+            {% elif movimiento.sentido == "SALIDA" %}<span class="pill pill--rojo">Salida</span>
+            {% else %}<span class="pill pill--azul">Traslado</span>{% endif %}
+          </td>
+          <td data-label="Origen">{{ movimiento.ubicacion_origen.nombre|default:"—" }}</td>
+          <td data-label="Destino">{{ movimiento.ubicacion_destino.nombre|default:"—" }}</td>
+          <td data-label="Cantidad" class="num">{{ movimiento.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Usuario">{{ movimiento.usuario.nombre_completo }}</td>
+          <td data-label="Observación">{{ movimiento.observacion|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="tabla__vacia">El lote todavía no tiene movimientos. Aparecerán al cerrar su recepción.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</section>
+{% endblock %}

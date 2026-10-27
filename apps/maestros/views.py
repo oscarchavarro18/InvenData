@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 from apps.auditoria.models import AccionAuditoria
 from apps.auditoria.servicios import instantanea, ip_de, registrar
 from apps.core.paginacion import paginar
-from apps.core.permisos import solo_gerente
+from apps.core.permisos import acceso_bodega, solo_gerente
 from apps.maestros.forms import EmbalajeForm, ProductoForm
 from apps.maestros.models import Parametro, Producto, TipoEmbalaje, Ubicacion
 
@@ -55,9 +55,12 @@ def producto_crear(request):
     return render(request, "maestros/producto_form.html", {"form": form})
 
 
-@login_required
+@acceso_bodega
 def configuracion(request):
-    """Consulta de los catálogos de la operación. La edición se hace desde el panel de gestión."""
+    """Consulta de los catálogos de la operación. La edición se hace desde el panel de gestión.
+
+    Son las zonas y embalajes de la bodega: el administrador de punto de venta no la ve (RN-06).
+    """
     contexto = {
         "ubicaciones": Ubicacion.objects.all(),
         "embalajes": TipoEmbalaje.objects.order_by("nombre"),

@@ -46,6 +46,28 @@ def jefe_bodega(db):
 
 
 @pytest.fixture
+def admin_pdv(punto_venta):
+    """Administrador de punto de venta: solo su ubicación, nunca la bodega (RN-06)."""
+    return Usuario.objects.create_user(
+        "admin_pdv",
+        "ClaveSegura123",
+        nombre_completo="Administrador de prueba",
+        perfil=Perfil.objects.get(codigo="ADMIN_PDV"),
+        ubicacion=punto_venta,
+    )
+
+
+@pytest.fixture
+def consulta(db):
+    return Usuario.objects.create_user(
+        "consulta",
+        "ClaveSegura123",
+        nombre_completo="Consulta de prueba",
+        perfil=Perfil.objects.get(codigo="CONSULTA"),
+    )
+
+
+@pytest.fixture
 def producto(db):
     categoria = CategoriaProducto.objects.create(nombre="Pollo")
     return Producto.objects.create(
