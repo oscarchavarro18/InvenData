@@ -10,6 +10,7 @@ urlpatterns = [
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("recepcion/", include("apps.recepcion.urls")),
     path("inventario/", include("apps.inventario.urls")),
+    path("transformacion/", include("apps.transformacion.urls")),
     path("", include("apps.maestros.urls")),
     path("", include("apps.core.urls")),
 ]

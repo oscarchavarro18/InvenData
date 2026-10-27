@@ -3,7 +3,8 @@
 from django import forms
 
 from apps.core.forms import EstiloMixin
-from apps.maestros.models import CategoriaProducto, Producto, TipoEmbalaje
+from apps.maestros.models import CategoriaProducto, Parametro, Producto, TipoEmbalaje
+from apps.maestros.parametros import LECTORES
 
 
 class ProductoForm(EstiloMixin, forms.ModelForm):
@@ -65,3 +66,25 @@ class EmbalajeForm(EstiloMixin, forms.ModelForm):
         if tara < 0:
             raise forms.ValidationError("La tara no puede ser negativa.")
         return tara
+
+
+class ParametroForm(forms.ModelForm):
+    """Formulario del panel de gestión: valida los parámetros que el sistema interpreta.
+
+    Un valor mal escrito, por ejemplo en la tolerancia de balance (RF-27), bloquearía todas
+    las confirmaciones de transformación, así que se rechaza al guardarlo.
+    """
+
+    class Meta:
+        model = Parametro
+        fields = ["clave", "valor", "descripcion"]
+
+    def clean(self):
+        datos = super().clean()
+        leer = LECTORES.get(datos.get("clave"))
+        if leer is not None and datos.get("valor"):
+            try:
+                leer(datos["valor"])
+            except ValueError as error:
+                self.add_error("valor", str(error))
+        return datos

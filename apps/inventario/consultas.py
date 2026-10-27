@@ -79,3 +79,9 @@ def existencia_del_lote(lote):
         .select_related("ubicacion")
         .order_by("ubicacion__codigo")
     )
+
+
+def orden_de_origen(lote):
+    """Orden de transformación que creó el lote, o None si no viene de una (RF-28)."""
+    registro = lote.registros_transformacion.select_related("orden").first()
+    return None if registro is None else registro.orden

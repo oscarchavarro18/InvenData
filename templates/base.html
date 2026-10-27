@@ -43,6 +43,10 @@
         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l10 5-10 5L2 7l10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
         Inventario
       </a>
+      <a class="menu__item{% if ruta.namespace == 'transformacion' %} menu__item--activo{% endif %}" href="{% url 'transformacion:orden_lista' %}"{% if ruta.namespace == 'transformacion' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88"/><path d="M14.47 14.48L20 20"/><path d="M8.12 8.12L12 12"/></svg>
+        Transformación
+      </a>
       <span class="menu__item menu__item--apagado" aria-disabled="true">
         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
         Reportes<span class="menu__pronto">Pronto</span>

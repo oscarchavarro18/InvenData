@@ -20,6 +20,9 @@
     {% if lote.lote_origen %}
     <div><div class="dato__etiqueta">Lote de origen</div><div class="dato__valor"><a href="{% url 'inventario:lote_detalle' lote.lote_origen.pk %}">{{ lote.lote_origen.codigo }}</a></div></div>
     {% endif %}
+    {% if orden_origen %}
+    <div><div class="dato__etiqueta">Orden de transformación</div><div class="dato__valor"><a href="{% url 'transformacion:orden_detalle' orden_origen.pk %}">{{ orden_origen.consecutivo }}</a></div></div>
+    {% endif %}
     <div>
       <div class="dato__etiqueta">Vence</div>
       <div class="dato__valor">
@@ -38,7 +41,7 @@
     <div class="tabla-caja">
       <table class="tabla tabla--densa tabla--apilada">
         <thead>
-          <tr><th>Ubicación</th><th class="num">Cantidad</th>{% if user.puede_operar_bodega %}<th>Acción</th>{% endif %}</tr>
+          <tr><th>Ubicación</th><th class="num">Cantidad</th>{% if user.puede_operar_bodega %}<th>Acciones</th>{% endif %}</tr>
         </thead>
         <tbody>
           {% for existencia in existencias %}
@@ -46,7 +49,10 @@
             <td class="tabla__principal">{{ existencia.ubicacion.nombre }}</td>
             <td data-label="Cantidad" class="num">{{ existencia.cantidad|floatformat:2 }} kg</td>
             {% if user.puede_operar_bodega %}
-            <td><a class="boton boton--claro boton--chico" href="{% url 'inventario:trasladar' lote.pk existencia.ubicacion.pk %}">Trasladar</a></td>
+            <td>
+              <a class="boton boton--claro boton--chico" href="{% url 'inventario:trasladar' lote.pk existencia.ubicacion.pk %}">Trasladar</a>
+              {% if lote.producto.admite_transformacion and lote.estado == "DISPONIBLE" %}<a class="boton boton--claro boton--chico" href="{% url 'transformacion:orden_crear' lote.pk existencia.ubicacion.pk %}">Transformar</a>{% endif %}
+            </td>
             {% endif %}
           </tr>
           {% empty %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titulo %}Transformación · InvenData{% endblock %}
+{% block encabezado %}Transformación{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Órdenes de corte, porcionado o reempaque y el balance de masa de cada una. Para crear una, use «Transformar» en el inventario.</p>
+</div>
+<div class="tarjeta">
+  <form method="get" class="filtros">
+    <select class="form-select" name="estado" aria-label="Filtrar por estado">
+      <option value="">Todos los estados</option>
+      {% for valor, nombre in estados %}
+      <option value="{{ valor }}"{% if estado == valor %} selected{% endif %}>{{ nombre }}</option>
+      {% endfor %}
+    </select>
+    <button class="boton boton--claro" type="submit">Filtrar</button>
+    {% if estado %}<a class="boton boton--claro" href="{% url 'transformacion:orden_lista' %}">Limpiar</a>{% endif %}
+  </form>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr>
+          <th>Orden</th>
+          <th>Lote de origen</th>
+          <th>Producto</th>
+          <th class="num">Consumido</th>
+          <th class="num">Cierre</th>
+          <th>Fecha</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for orden in pagina %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'transformacion:orden_detalle' orden.pk %}">{{ orden.consecutivo }}</a></td>
+          <td data-label="Lote de origen">{{ orden.lote_origen.codigo }}</td>
+          <td data-label="Producto">{{ orden.lote_origen.producto.nombre }}</td>
+          <td data-label="Consumido" class="num">{{ orden.cantidad_consumida|floatformat:2 }} kg</td>
+          <td data-label="Cierre" class="num">
+            {% if orden.porcentaje_cierre is not None %}
+              {{ orden.porcentaje_cierre|floatformat:2 }} %
+              {% if not orden.dentro_tolerancia %}<span class="pill pill--rojo">Fuera</span>{% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td data-label="Fecha">{{ orden.fecha_hora|date:"d/m/Y H:i" }}</td>
+          <td data-label="Estado">{% include "componentes/pill_orden.html" with estado=orden.estado %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="tabla__vacia">{% if estado %}Ninguna orden en ese estado.{% else %}Todavía no hay órdenes de transformación.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}
