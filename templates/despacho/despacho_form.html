@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titulo %}Despachar {{ pedido.consecutivo }} · InvenData{% endblock %}
+{% block encabezado %}Despacho mayorista{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'embultaje:pedido_detalle' pedido.pk %}">← Volver al pedido</a>
+<form method="post" novalidate class="tarjeta" data-confirmar="¿Registrar el despacho? La existencia se descuenta en este momento y no espera ninguna confirmación.">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  <div class="tarjeta__cabeza"><h2>Pedido {{ pedido.consecutivo }} · {{ pedido.cliente.razon_social }}</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada tabla--formulario">
+      <thead><tr><th>Lote</th><th>Producto</th><th>Sale de</th><th class="num">Alistado</th><th>Peso cargado (kg)</th><th>Bultos o cajas</th></tr></thead>
+      <tbody>
+        {% for linea, alistamiento in filas %}
+        <tr>
+          <td class="tabla__principal">{{ linea.alistamiento }}{{ alistamiento.lote.codigo }}</td>
+          <td data-label="Producto">{{ alistamiento.lote.producto.nombre }}</td>
+          <td data-label="Sale de">{{ alistamiento.ubicacion.nombre }}</td>
+          <td data-label="Alistado" class="num">{{ alistamiento.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Peso cargado (kg)">{{ linea.cantidad }}{% for error in linea.cantidad.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}</td>
+          <td data-label="Bultos o cajas">{{ linea.cantidad_bultos_cajas }}{% for error in linea.cantidad_bultos_cajas.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tarjeta__cuerpo">
+    <p class="campo__ayuda">El peso cargado puede diferir un poco de lo alistado: es el que se descuenta de la existencia. La firma de quien recibe se registra después, en el detalle del despacho.</p>
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{% url 'embultaje:pedido_detalle' pedido.pk %}">Cancelar</a>
+      <button class="boton" type="submit">Registrar despacho</button>
+    </div>
+  </div>
+</form>
+
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+</script>
+{% endblock %}

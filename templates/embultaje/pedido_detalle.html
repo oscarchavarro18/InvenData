@@ -22,6 +22,15 @@
     <div><div class="dato__etiqueta">Motivo</div><div class="dato__valor">{{ pedido.observacion_anulacion }}</div></div>
     {% endif %}
   </div>
+  {% if pedido.estado == "ALISTADO" and user.puede_operar_bodega %}
+  <div class="tarjeta__cuerpo">
+    <div class="formulario-pie"><a class="boton" href="{% url 'despacho:despacho_crear' pedido.pk %}">Despachar pedido</a></div>
+  </div>
+  {% elif pedido.estado == "DESPACHADO" %}
+  <div class="tarjeta__cuerpo">
+    <div class="formulario-pie"><a class="boton boton--claro" href="{% url 'despacho:despacho_detalle' pedido.despacho.pk %}">Ver despacho</a></div>
+  </div>
+  {% endif %}
   {% if editable and filas %}
   <div class="tarjeta__cuerpo">
     <form method="post" action="{% url 'embultaje:pedido_alistar' pedido.pk %}" data-confirmar="¿Dar el pedido por alistado? Después ya no se pueden cambiar sus líneas ni sus lotes.">
