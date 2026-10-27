@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block titulo %}Embultar lote {{ existencia.lote.codigo }} · InvenData{% endblock %}
+{% block encabezado %}Embultaje{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'inventario:existencias' %}">← Volver al inventario</a>
+<form method="post" novalidate class="tarjeta tarjeta--angosta" data-embultaje>
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>Lote {{ existencia.lote.codigo }}</h2></div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Producto</div><div class="dato__valor">{{ existencia.lote.producto.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Sale de</div><div class="dato__valor">{{ existencia.ubicacion.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Disponible</div><div class="dato__valor">{{ existencia.cantidad|floatformat:2 }} kg</div></div>
+    <div><div class="dato__etiqueta">Vence</div><div class="dato__valor">{{ existencia.lote.fecha_vencimiento|date:"d/m/Y" }}</div></div>
+  </div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      {% if campo.name == "usa_calculo_bultos" %}
+      <div class="campo campo--ancho campo--casilla">
+        {{ campo }}
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      </div>
+      {% else %}
+      <div class="campo{% if campo.name == 'ubicacion_destino' %} campo--ancho{% endif %}"{% if campo.name == "cantidad_bultos" or campo.name == "peso_por_bulto" %} data-por-bultos{% elif campo.name == "total_kilos" %} data-digitado{% endif %}>
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    <p class="campo__ayuda" data-por-bultos>Total: <strong data-total>—</strong>. Se crea un bulto numerado por cada uno, con el vencimiento del lote.</p>
+    <p class="campo__ayuda">Solo se pesa lo que queda embultado. Lo que sobre en origen se da de baja como merma al cerrar el lote.</p>
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{% url 'inventario:existencias' %}">Cancelar</a>
+      <button class="boton" type="submit">Registrar embultaje</button>
+    </div>
+  </div>
+</form>
+
+<script>
+  // Muestra los campos del modo elegido y el total por bultos; el valor que cuenta lo calcula el servidor.
+  (function () {
+    var form = document.querySelector("[data-embultaje]");
+    var casilla = form.querySelector("[name=usa_calculo_bultos]");
+    var cantidad = form.querySelector("[name=cantidad_bultos]");
+    var peso = form.querySelector("[name=peso_por_bulto]");
+    var total = form.querySelector("[data-total]");
+    function actualizar() {
+      form.querySelectorAll("[data-por-bultos]").forEach(function (el) { el.hidden = !casilla.checked; });
+      form.querySelectorAll("[data-digitado]").forEach(function (el) { el.hidden = casilla.checked; });
+      var c = parseInt(cantidad.value, 10);
+      var p = parseFloat(peso.value);
+      total.textContent = isNaN(c) || isNaN(p) ? "—" : (c * p).toFixed(2).replace(".", ",") + " kg";
+    }
+    form.addEventListener("input", actualizar);
+    form.addEventListener("change", actualizar);
+    actualizar();
+  })();
+</script>
+{% endblock %}

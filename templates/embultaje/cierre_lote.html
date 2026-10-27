@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titulo %}Cerrar lote {{ lote.codigo }} · InvenData{% endblock %}
+{% block encabezado %}Cerrar lote como embultado{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'inventario:lote_detalle' lote.pk %}">← Volver al lote</a>
+
+<section class="tarjeta tarjeta--angosta">
+  <div class="tarjeta__cabeza"><h2>Lote {{ lote.codigo }}</h2></div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Producto</div><div class="dato__valor">{{ lote.producto.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Registros de embultaje</div><div class="dato__valor">{{ resumen.registros }}</div></div>
+    <div><div class="dato__etiqueta">Total embultado</div><div class="dato__valor">{{ resumen.total_embultado|floatformat:2 }} kg</div></div>
+    <div><div class="dato__etiqueta">Merma al cerrar</div><div class="dato__valor">{{ resumen.merma|floatformat:2 }} kg</div></div>
+  </div>
+  <div class="tarjeta__cuerpo">
+    {% if not resumen.registros %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">El lote no tiene embultajes registrados: no se puede cerrar.</span></div>
+    {% elif resumen.pendiente %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">Hay producto sin embultar en {% for e in resumen.pendiente %}{{ e.ubicacion.nombre }} ({{ e.cantidad|floatformat:2 }} kg){% if not forloop.last %}, {% endif %}{% endfor %}. Embúltelo o trasládelo a la zona de donde se embulta antes de cerrar.</span></div>
+    {% endif %}
+
+    {% if resumen.residuos %}
+    <p>Lo que queda en origen se dará de baja como merma de embultaje:</p>
+    <ul>
+      {% for e in resumen.residuos %}<li>{{ e.ubicacion.nombre }}: {{ e.cantidad|floatformat:2 }} kg</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if resumen.embultado %}
+    <p>Lo embultado se conserva:</p>
+    <ul>
+      {% for e in resumen.embultado %}<li>{{ e.ubicacion.nombre }}: {{ e.cantidad|floatformat:2 }} kg</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <p class="campo__ayuda">Después de cerrar, el lote no admite nuevos embultajes. Hágalo cuando ya no quede nada por embultar.</p>
+
+    {% if resumen.registros and not resumen.pendiente %}
+    <form method="post" data-confirmar="¿Cerrar el lote {{ lote.codigo }}? Se registrará la merma y no admitirá más embultajes.">
+      {% csrf_token %}
+      <div class="formulario-pie">
+        <a class="boton boton--claro" href="{% url 'inventario:lote_detalle' lote.pk %}">Cancelar</a>
+        <button class="boton" type="submit">Cerrar lote</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+</script>
+{% endblock %}
