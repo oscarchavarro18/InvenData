@@ -59,6 +59,7 @@
           <td>
             <a class="boton boton--claro boton--chico" href="{% url 'inventario:trasladar' fila.lote.pk fila.ubicacion.pk %}">Trasladar</a>
             {% if fila.lote.producto.admite_transformacion and fila.lote.estado == "DISPONIBLE" %}<a class="boton boton--claro boton--chico" href="{% url 'transformacion:orden_crear' fila.lote.pk fila.ubicacion.pk %}">Transformar</a>{% endif %}
+            {% if fila.lote.estado == "DISPONIBLE" and fila.lote.origen != "TRANSFORMACION" and fila.ubicacion.tipo != "ZONA_BULTOS" %}<a class="boton boton--claro boton--chico" href="{% url 'embultaje:registro_crear' fila.lote.pk fila.ubicacion.pk %}">Embultar</a>{% endif %}
           </td>
           {% endif %}
         </tr>

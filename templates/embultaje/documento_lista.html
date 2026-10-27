@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Embultaje · InvenData{% endblock %}
+{% block encabezado %}Embultaje{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Un documento por día con todo lo embultado en la jornada. Para embultar, use «Embultar» en el inventario.</p>
+</div>
+<div class="tarjeta">
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr><th>Fecha</th><th class="num">Registros</th><th class="num">Embultado</th><th>Abierto por</th></tr>
+      </thead>
+      <tbody>
+        {% for documento in pagina %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'embultaje:documento_detalle' documento.pk %}">{{ documento.fecha|date:"d/m/Y" }}</a></td>
+          <td data-label="Registros" class="num">{{ documento.n_registros }}</td>
+          <td data-label="Embultado" class="num">{{ documento.kg|default_if_none:0|floatformat:2 }} kg</td>
+          <td data-label="Abierto por">{{ documento.usuario.nombre_completo }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="tabla__vacia">Todavía no hay embultajes registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}

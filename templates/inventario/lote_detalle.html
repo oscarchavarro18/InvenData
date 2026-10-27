@@ -10,7 +10,10 @@
       <h2>Lote {{ lote.codigo }}</h2>
       <span class="tabla__secundario">{{ lote.producto.nombre }} · {{ lote.producto.codigo }}</span>
     </div>
-    <span class="pill pill--azul">{{ lote.get_estado_producto_display }}</span>
+    <div class="barra__acciones">
+      <span class="pill pill--azul">{{ lote.get_estado_producto_display }}</span>
+      {% if puede_cerrar_embultaje %}<a class="boton boton--claro boton--chico" href="{% url 'embultaje:lote_cerrar' lote.pk %}">Cerrar lote embultado</a>{% endif %}
+    </div>
   </div>
   <div class="datos">
     <div><div class="dato__etiqueta">Origen</div><div class="dato__valor">{{ lote.get_origen_display }}</div></div>
@@ -31,6 +34,11 @@
       </div>
     </div>
     <div><div class="dato__etiqueta">Estado</div><div class="dato__valor">{{ lote.get_estado_display }}</div></div>
+    {% if lote.estado == "EMBULTADO" %}
+    <div><div class="dato__etiqueta">Total embultado</div><div class="dato__valor">{{ lote.total_embultado_kg|floatformat:2 }} kg</div></div>
+    <div><div class="dato__etiqueta">Merma de embultaje</div><div class="dato__valor">{{ lote.merma_vs_origen_kg|default_if_none:"—"|floatformat:2 }}{% if lote.merma_vs_origen_kg is not None %} kg{% endif %}</div></div>
+    <div><div class="dato__etiqueta">Cerrado</div><div class="dato__valor">{{ lote.cerrado_en|date:"d/m/Y H:i" }} · {{ lote.cerrado_por.nombre_completo }}</div></div>
+    {% endif %}
     <div><div class="dato__etiqueta">Existencia total</div><div class="dato__valor">{{ total|floatformat:2 }} kg</div></div>
   </div>
 </section>
@@ -52,6 +60,7 @@
             <td>
               <a class="boton boton--claro boton--chico" href="{% url 'inventario:trasladar' lote.pk existencia.ubicacion.pk %}">Trasladar</a>
               {% if lote.producto.admite_transformacion and lote.estado == "DISPONIBLE" %}<a class="boton boton--claro boton--chico" href="{% url 'transformacion:orden_crear' lote.pk existencia.ubicacion.pk %}">Transformar</a>{% endif %}
+              {% if lote.estado == "DISPONIBLE" and lote.origen != "TRANSFORMACION" and existencia.ubicacion.tipo != "ZONA_BULTOS" %}<a class="boton boton--claro boton--chico" href="{% url 'embultaje:registro_crear' lote.pk existencia.ubicacion.pk %}">Embultar</a>{% endif %}
             </td>
             {% endif %}
           </tr>

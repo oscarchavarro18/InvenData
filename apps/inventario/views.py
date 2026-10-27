@@ -22,7 +22,7 @@ from apps.inventario.consultas import (
     orden_de_origen,
 )
 from apps.inventario.forms import TrasladoForm
-from apps.inventario.models import Existencia, Lote
+from apps.inventario.models import EstadoLote, Existencia, Lote
 from apps.inventario.servicios import ErrorInventario, trasladar_entre_zonas
 from apps.maestros.models import Ubicacion
 
@@ -64,7 +64,10 @@ def lote_detalle(request, pk):
     """Historial de un lote: de dónde viene, dónde está y todo lo que le ha pasado (RF-22)."""
     lote = get_object_or_404(
         Lote.objects.select_related(
-            "producto", "lote_origen", "documento_proveedor_linea__documento_proveedor"
+            "producto",
+            "lote_origen",
+            "cerrado_por",
+            "documento_proveedor_linea__documento_proveedor",
         ),
         pk=pk,
     )
@@ -76,6 +79,10 @@ def lote_detalle(request, pk):
         "total": sum(e.cantidad for e in existencias_lote),
         "derivados": lote.derivados.select_related("producto"),
         "orden_origen": orden_de_origen(lote),
+        # Cerrar el embultaje (M5) se ofrece si el lote sigue abierto y ya se embultó algo.
+        "puede_cerrar_embultaje": request.user.puede_operar_bodega
+        and lote.estado == EstadoLote.DISPONIBLE
+        and lote.registros_embultaje.exists(),
         "pagina": pagina,
         "consulta": consulta,
         "hoy": timezone.localdate(),
