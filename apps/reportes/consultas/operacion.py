@@ -1,4 +1,4 @@
-"""Consultas de los reportes de M9 (RF-56 a RF-60, RF-63, RF-66). Aquí no se modifica nada.
+"""Reportes de operación de M9 (RF-56 a RF-60). Aquí no se modifica nada.
 
 Cada función recibe filtros ya validados y el alcance de quien consulta, y devuelve un
 `Reporte` listo para la pantalla, el CSV y el PDF. El alcance se decide en la vista con los
@@ -7,8 +7,6 @@ de PDV (RN-06), y cada quien ve solo los puntos de venta que le corresponden (RN
 """
 
 from collections import defaultdict
-from datetime import timedelta
-from decimal import Decimal
 
 from django.db.models import Count, Sum
 from django.utils import timezone
@@ -30,27 +28,16 @@ from apps.puntoventa.models import (
     VentaConsumidorFinalLinea,
     VentaRestauranteRemisionLinea,
 )
+from apps.reportes.consultas.comun import (
+    CERO,
+    CIEN,
+    CONSUMIDOR,
+    RESTAURANTE,
+    nombres,
+    periodo,
+    porcentaje,
+)
 from apps.reportes.reporte import Columna, Reporte, formatear
-
-CERO = Decimal("0")
-CIEN = Decimal("100")
-
-CONSUMIDOR = "Consumidor final"
-RESTAURANTE = "Restaurante"
-
-
-def _porcentaje(parte, total):
-    return (parte * CIEN / total) if total else CERO
-
-
-def _periodo(desde, hasta):
-    return f"{desde:%d/%m/%Y} a {hasta:%d/%m/%Y}"
-
-
-def _nombres(puntos):
-    nombres = [p.nombre for p in puntos]
-    return ", ".join(nombres) if len(nombres) <= 3 else f"Todos ({len(nombres)})"
-
 
 # --- Existencias de bodega (RF-56, RF-63) ---------------------------------------------------
 
@@ -100,7 +87,7 @@ def existencias_bodega(*, ubicacion=None, producto=None, estado=None):
         ("Lotes vencidos", len({f["lote"] for f in filas if f["dias"] < 0}), "entero"),
     ]
     if mayor:
-        participacion = formatear(_porcentaje(mayor[1], total), "porcentaje")
+        participacion = formatear(porcentaje(mayor[1], total), "porcentaje")
         resumen.append(("Mayor existencia", f"{mayor[0]} ({participacion})", "texto"))
     filtros = [
         ("Ubicación", ubicacion.nombre if ubicacion else "Todas las de bodega"),
@@ -152,7 +139,7 @@ def existencias_pdv(*, puntos, producto=None):
     ]
     total = sum((f["kg"] for f in filas), CERO)
     for fila in filas:
-        fila["participacion"] = _porcentaje(fila["kg"], total)
+        fila["participacion"] = porcentaje(fila["kg"], total)
     return Reporte(
         titulo="Existencias de punto de venta",
         archivo="existencias-pdv",
@@ -166,7 +153,7 @@ def existencias_pdv(*, puntos, producto=None):
         ],
         filas=filas,
         filtros=[
-            ("Punto de venta", _nombres(puntos)),
+            ("Punto de venta", nombres(puntos)),
             ("Producto", producto.nombre if producto else "Todos"),
         ],
         resumen=[
@@ -303,7 +290,7 @@ def ventas(*, puntos, desde, hasta, producto=None, canal="", agrupar="detalle"):
     filas = []
     for clave, (kg, n) in juntas.items():
         fila = dict(clave)
-        fila.update(kg=kg, ventas=n, participacion=_porcentaje(kg, total))
+        fila.update(kg=kg, ventas=n, participacion=porcentaje(kg, total))
         filas.append(fila)
     filas.sort(key=lambda f: (-f["kg"], *(str(f[c]) for c in claves)))
     mas_vendido = max(por_producto.items(), key=lambda par: par[1], default=None)
@@ -329,8 +316,8 @@ def ventas(*, puntos, desde, hasta, producto=None, canal="", agrupar="detalle"):
         columnas=columnas,
         filas=filas,
         filtros=[
-            ("Periodo", _periodo(desde, hasta)),
-            ("Punto de venta", _nombres(puntos)),
+            ("Periodo", periodo(desde, hasta)),
+            ("Punto de venta", nombres(puntos)),
             ("Producto", producto.nombre if producto else "Todos"),
             ("Canal", CANALES.get(canal, CANALES[""])),
             ("Agrupado por", titulo_grupo),
@@ -437,7 +424,7 @@ def correcciones(*, ver_bodega, puntos, desde, hasta, ambito="", motivo=""):
         ],
         filas=filas,
         filtros=[
-            ("Periodo", _periodo(desde, hasta)),
+            ("Periodo", periodo(desde, hasta)),
             ("Ámbito", _ambito(ambito, ver_bodega, bool(puntos))),
             ("Motivo", dict(MotivoAjuste.choices).get(motivo, "Todos")),
         ],
@@ -470,9 +457,3 @@ def _fila_correccion(m, *, ambito, ubicacion, lote, producto, suma, reverso):
         "usuario": m.usuario.nombre_completo,
         "observacion": m.observacion or "",
     }
-
-
-def periodo_por_defecto(dias=30):
-    """Los últimos `dias` días hasta hoy, para los reportes por periodo."""
-    hoy = timezone.localdate()
-    return hoy - timedelta(days=dias - 1), hoy

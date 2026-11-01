@@ -156,3 +156,22 @@ def test_dias_fuera_de_rango_usan_el_valor_por_defecto(client, gerente, vencido)
     respuesta = _entrar(client, gerente).get(reverse("reportes:por_vencer"), {"dias": "999"})
     assert respuesta.status_code == 200
     assert "Vencidos y los que vencen en 7 días o menos" in respuesta.content.decode()
+
+
+def test_indice_con_informe_indicadores_trazabilidad_y_mermas(client, gerente, admin_pdv):
+    """RF-54, RF-55, RF-61, RF-64: los reportes nuevos aparecen según el perfil."""
+    nuevos = (
+        "reportes:informe",
+        "reportes:indicadores",
+        "reportes:trazabilidad",
+        "reportes:mermas",
+    )
+    contenido = _entrar(client, gerente).get(reverse("reportes:indice")).content.decode()
+    for ruta in nuevos:
+        assert f'href="{reverse(ruta)}"' in contenido
+
+    contenido = _entrar(client, admin_pdv).get(reverse("reportes:indice")).content.decode()
+    assert f'href="{reverse("reportes:informe")}"' in contenido
+    assert f'href="{reverse("reportes:indicadores")}"' in contenido
+    assert f'href="{reverse("reportes:trazabilidad")}"' not in contenido
+    assert f'href="{reverse("reportes:mermas")}"' not in contenido

@@ -22,6 +22,7 @@ from apps.reportes.reporte import formatear
 AZUL = colors.HexColor("#13213a")
 GRIS_CLARO = colors.HexColor("#f2f4f8")
 GRIS_BORDE = colors.HexColor("#d5dae3")
+POR_FILA = 4  # cifras clave por fila en el PDF
 
 
 def _nombre(reporte, extension):
@@ -29,9 +30,9 @@ def _nombre(reporte, extension):
     return f"invendata-{reporte.archivo}-{fecha}.{extension}"
 
 
-def _crudas(reporte, fila):
+def _crudas(columnas, fila):
     """Celdas para el CSV: sin separador de miles, para que Excel las lea como números."""
-    return [formatear(fila.get(c.clave), c.tipo, miles=False) for c in reporte.columnas]
+    return [formatear(fila.get(c.clave), c.tipo, miles=False) for c in columnas]
 
 
 def respuesta_csv(reporte):
@@ -42,12 +43,15 @@ def respuesta_csv(reporte):
         escritor.writerow([etiqueta, valor])
     generado = timezone.localtime(reporte.generado).strftime("%d/%m/%Y %H:%M")
     escritor.writerow(["Generado", generado])
-    escritor.writerow([])
-    escritor.writerow([c.titulo for c in reporte.columnas])
-    for fila in reporte.filas:
-        escritor.writerow(_crudas(reporte, fila))
-    if reporte.totales:
-        escritor.writerow(_crudas(reporte, reporte.totales))
+    for tabla in reporte.tablas:
+        escritor.writerow([])
+        if tabla.titulo:
+            escritor.writerow([tabla.titulo])
+        escritor.writerow([c.titulo for c in tabla.columnas])
+        for fila in tabla.filas:
+            escritor.writerow(_crudas(tabla.columnas, fila))
+        if tabla.totales:
+            escritor.writerow(_crudas(tabla.columnas, tabla.totales))
     # La marca UTF-8 al inicio hace que Excel reconozca las tildes.
     respuesta = HttpResponse("\ufeff" + salida.getvalue(), content_type="text/csv; charset=utf-8")
     respuesta["Content-Disposition"] = f'attachment; filename="{_nombre(reporte, "csv")}"'
@@ -65,6 +69,12 @@ def _estilos():
         "cabeza": ParagraphStyle(
             "cabeza", parent=base["Normal"], fontSize=7.5, leading=9, textColor=colors.white
         ),
+        "cifra": ParagraphStyle(
+            "cifra", parent=base["Normal"], fontSize=11, leading=14, textColor=AZUL
+        ),
+        "seccion": ParagraphStyle(
+            "seccion", parent=base["Heading2"], fontSize=11, textColor=AZUL, spaceBefore=4
+        ),
         "nota": ParagraphStyle(
             "nota", parent=base["Normal"], fontSize=7.5, leading=10, textColor=colors.grey
         ),
@@ -76,13 +86,51 @@ def _texto(valor):
     return str(valor).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _anchos(columnas, ancho):
+    """Reparte el ancho útil: el texto pesa el doble que una cifra."""
+    pesos = [1 if c.numerica else 2 for c in columnas]
+    return [ancho * p / sum(pesos) for p in pesos]
+
+
+def _tabla_pdf(tabla, estilos, ancho):
+    """Una tabla del reporte: encabezado que se repite, filas alternadas y totales."""
+    datos = [[Paragraph(f"<b>{_texto(c.titulo)}</b>", estilos["cabeza"]) for c in tabla.columnas]]
+    for fila in tabla.filas:
+        datos.append([Paragraph(_texto(v), estilos["celda"]) for v in tabla.celdas(fila)])
+    totales = tabla.fila_de_totales()
+    if totales:
+        datos.append([Paragraph(f"<b>{_texto(v)}</b>", estilos["celda"]) for v in totales])
+    if not tabla.filas:
+        datos.append([Paragraph("Sin datos para los filtros elegidos.", estilos["celda"])])
+
+    resultado = Table(datos, colWidths=_anchos(tabla.columnas, ancho), repeatRows=1, hAlign="LEFT")
+    estilo = [
+        ("BACKGROUND", (0, 0), (-1, 0), AZUL),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, GRIS_CLARO]),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.25, GRIS_BORDE),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]
+    for indice, columna in enumerate(tabla.columnas):
+        if columna.numerica:
+            estilo.append(("ALIGN", (indice, 0), (indice, -1), "RIGHT"))
+    if totales:
+        estilo.append(("LINEABOVE", (0, -1), (-1, -1), 1, AZUL))
+    if not tabla.filas:
+        estilo.append(("SPAN", (0, 1), (-1, 1)))
+    resultado.setStyle(TableStyle(estilo))
+    return resultado
+
+
 def respuesta_pdf(reporte, usuario=None):
     buffer = io.BytesIO()
-    horizontal = len(reporte.columnas) > 6
+    horizontal = max((len(t.columnas) for t in reporte.tablas), default=0) > 6
     tamano = landscape(letter) if horizontal else letter
     estilos = _estilos()
     quien = getattr(usuario, "nombre_completo", "") if usuario else ""
     generado = timezone.localtime(reporte.generado).strftime("%d/%m/%Y %H:%M")
+    ancho = tamano[0] - 3 * cm  # menos las márgenes izquierda y derecha
 
     def pie(lienzo, documento):
         lienzo.saveState()
@@ -115,51 +163,37 @@ def respuesta_pdf(reporte, usuario=None):
     elementos.append(Spacer(1, 0.3 * cm))
 
     if reporte.resumen:
-        celdas = [
-            [Paragraph(f"<b>{_texto(e)}</b>", estilos["filtro"]) for e, _, _ in reporte.resumen],
-            [Paragraph(_texto(formatear(v, t)), estilos["filtro"]) for _, v, t in reporte.resumen],
-        ]
-        cifras = Table(celdas, hAlign="LEFT")
+        # Las cifras clave en una rejilla de cuatro por fila: etiqueta arriba, valor abajo.
+        celdas = []
+        for inicio in range(0, len(reporte.resumen), POR_FILA):
+            grupo = reporte.resumen[inicio : inicio + POR_FILA]
+            vacias = [""] * (POR_FILA - len(grupo))
+            celdas.append(
+                [Paragraph(f"<b>{_texto(e)}</b>", estilos["filtro"]) for e, _, _ in grupo] + vacias
+            )
+            celdas.append(
+                [Paragraph(_texto(formatear(v, t)), estilos["cifra"]) for _, v, t in grupo] + vacias
+            )
+        cifras = Table(celdas, colWidths=[ancho / POR_FILA] * POR_FILA, hAlign="LEFT")
         cifras.setStyle(
             TableStyle(
                 [
                     ("BACKGROUND", (0, 0), (-1, -1), GRIS_CLARO),
                     ("BOX", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
-                    ("INNERGRID", (0, 0), (-1, -1), 0.5, GRIS_BORDE),
-                    ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
                 ]
             )
         )
         elementos += [cifras, Spacer(1, 0.4 * cm)]
 
-    datos = [[Paragraph(f"<b>{_texto(c.titulo)}</b>", estilos["cabeza"]) for c in reporte.columnas]]
-    for fila in reporte.filas:
-        datos.append([Paragraph(_texto(v), estilos["celda"]) for v in reporte.celdas(fila)])
-    totales = reporte.fila_de_totales()
-    if totales:
-        datos.append([Paragraph(f"<b>{_texto(v)}</b>", estilos["celda"]) for v in totales])
-    if not reporte.filas:
-        datos.append([Paragraph("Sin datos para los filtros elegidos.", estilos["celda"])])
-
-    tabla = Table(datos, repeatRows=1, hAlign="LEFT")
-    estilo = [
-        ("BACKGROUND", (0, 0), (-1, 0), AZUL),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, GRIS_CLARO]),
-        ("LINEBELOW", (0, 0), (-1, -1), 0.25, GRIS_BORDE),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-    ]
-    for indice, columna in enumerate(reporte.columnas):
-        if columna.numerica:
-            estilo.append(("ALIGN", (indice, 0), (indice, -1), "RIGHT"))
-    if totales:
-        estilo.append(("LINEABOVE", (0, -1), (-1, -1), 1, AZUL))
-    if not reporte.filas:
-        estilo.append(("SPAN", (0, 1), (-1, 1)))
-    tabla.setStyle(TableStyle(estilo))
-    elementos.append(tabla)
+    for tabla in reporte.tablas:
+        if tabla.titulo:
+            elementos.append(Paragraph(_texto(tabla.titulo), estilos["seccion"]))
+        elementos.append(_tabla_pdf(tabla, estilos, ancho))
+        if tabla.nota:
+            elementos.append(Paragraph(_texto(tabla.nota), estilos["nota"]))
+        elementos.append(Spacer(1, 0.4 * cm))
     if reporte.nota:
         elementos += [Spacer(1, 0.3 * cm), Paragraph(_texto(reporte.nota), estilos["nota"])]
 

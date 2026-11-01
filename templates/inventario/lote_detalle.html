@@ -12,6 +12,7 @@
     </div>
     <div class="barra__acciones">
       <span class="pill pill--azul">{{ lote.get_estado_producto_display }}</span>
+      <a class="boton boton--claro boton--chico" href="{% url 'reportes:trazabilidad' %}?lote={{ lote.codigo|urlencode }}">Trazabilidad completa</a>
       {% if puede_cerrar_embultaje %}<a class="boton boton--claro boton--chico" href="{% url 'embultaje:lote_cerrar' lote.pk %}">Cerrar lote embultado</a>{% endif %}
     </div>
   </div>

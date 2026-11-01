@@ -12,18 +12,39 @@ from decimal import Decimal
 from django.utils import timezone
 
 # Cómo se muestra y se alinea cada tipo de dato.
-NUMERICOS = {"kg", "entero", "porcentaje"}
+NUMERICOS = {"kg", "entero", "porcentaje", "dias"}
 
 
 @dataclass(frozen=True)
 class Columna:
     clave: str
     titulo: str
-    tipo: str = "texto"  # texto, kg, entero, porcentaje, fecha, fechahora
+    tipo: str = "texto"  # texto, kg, entero, porcentaje, dias, fecha, fechahora
 
     @property
     def numerica(self):
         return self.tipo in NUMERICOS
+
+
+@dataclass
+class Seccion:
+    """Una tabla con título dentro de un reporte de varias partes (trazabilidad, informe)."""
+
+    titulo: str
+    columnas: list
+    filas: list = field(default_factory=list)
+    totales: dict = field(default_factory=dict)
+    nota: str = ""
+
+    def celdas(self, fila):
+        return [formatear(fila.get(c.clave), c.tipo) for c in self.columnas]
+
+    def fila_de_totales(self):
+        if not self.totales:
+            return None
+        celdas = [formatear(self.totales.get(c.clave), c.tipo) for c in self.columnas]
+        celdas[0] = celdas[0] or "Total"
+        return celdas
 
 
 @dataclass
@@ -37,6 +58,16 @@ class Reporte:
     nota: str = ""
     archivo: str = "reporte"  # nombre base de los archivos descargados
     generado: datetime = field(default_factory=timezone.now)
+    # Reportes de varias partes: sin `columnas` propias, todo va en secciones.
+    secciones: list = field(default_factory=list)
+
+    @property
+    def tablas(self):
+        """Todas las tablas en orden: la principal (si tiene columnas) y las secciones."""
+        principal = []
+        if self.columnas:
+            principal = [Seccion("", self.columnas, self.filas, self.totales)]
+        return principal + list(self.secciones)
 
     def celdas(self, fila):
         """Los valores de una fila ya formateados, en el orden de las columnas."""
@@ -72,6 +103,8 @@ def formatear(valor, tipo, miles=True):
         return numero(valor, 2, miles)
     if tipo == "porcentaje":
         return f"{numero(valor, 1, miles)} %"
+    if tipo == "dias":
+        return numero(valor, 1, miles)
     if tipo == "entero":
         return _miles(int(valor)) if miles else str(int(valor))
     if tipo == "fechahora" and isinstance(valor, datetime):

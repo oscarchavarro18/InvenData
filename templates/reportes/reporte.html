@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% block titulo %}{{ reporte.titulo }} · InvenData{% endblock %}
-{% block encabezado %}{{ reporte.titulo }}{% endblock %}
+{% block titulo %}{% if reporte %}{{ reporte.titulo }}{% else %}{{ titulo }}{% endif %} · InvenData{% endblock %}
+{% block encabezado %}{% if reporte %}{{ reporte.titulo }}{% else %}{{ titulo }}{% endif %}{% endblock %}
 {% block contenido %}
 <a class="volver" href="{% url 'reportes:indice' %}">← Volver a reportes</a>
 
+{% if reporte %}
 <div class="barra">
   <p class="barra__texto">{% for etiqueta, valor in reporte.filtros %}{{ etiqueta }}: {{ valor }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
   <div class="barra__acciones">
@@ -11,6 +12,9 @@
     <a class="boton" href="?{% if exportar %}{{ exportar }}&amp;{% endif %}formato=pdf">Descargar PDF</a>
   </div>
 </div>
+{% elif ayuda %}
+<div class="barra"><p class="barra__texto">{{ ayuda }}</p></div>
+{% endif %}
 
 {% if form.fields %}
 <div class="tarjeta">
@@ -41,28 +45,22 @@
 </section>
 {% endif %}
 
+{% if reporte.columnas %}
 <section class="tarjeta">
   <div class="tarjeta__cabeza"><h2>Detalle</h2><span class="pill pill--gris">{{ pagina.paginator.count }} filas</span></div>
-  <div class="tabla-caja">
-    <table class="tabla tabla--densa tabla--apilada">
-      <thead><tr>{% for columna in reporte.columnas %}<th{% if columna.numerica %} class="num"{% endif %}>{{ columna.titulo }}</th>{% endfor %}</tr></thead>
-      <tbody>
-        {% for fila in pagina %}
-        <tr>
-          {% for valor, columna in fila %}<td class="{% if forloop.first %}tabla__principal{% endif %}{% if columna.numerica %} num{% endif %}"{% if not forloop.first %} data-label="{{ columna.titulo }}"{% endif %}>{{ valor }}</td>{% endfor %}
-        </tr>
-        {% empty %}
-        <tr><td colspan="{{ reporte.columnas|length }}" class="tabla__vacia">Sin datos para los filtros elegidos.</td></tr>
-        {% endfor %}
-        {% if totales and pagina.paginator.count and not pagina.has_next %}
-        <tr>
-          {% for valor, columna in totales %}<td class="{% if forloop.first %}tabla__principal{% endif %}{% if columna.numerica %} num{% endif %}"{% if not forloop.first and valor %} data-label="{{ columna.titulo }}"{% endif %}><strong>{{ valor }}</strong></td>{% endfor %}
-        </tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
+  {% include "reportes/_tabla.html" with columnas=reporte.columnas filas=pagina totales=totales mostrar_totales=totales_visibles %}
   {% include "componentes/paginacion.html" %}
-  {% if reporte.nota %}<div class="tarjeta__cuerpo"><p class="campo__ayuda">{{ reporte.nota }}</p></div>{% endif %}
 </section>
+{% endif %}
+
+{% for seccion in secciones %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>{{ seccion.titulo }}</h2><span class="pill pill--gris">{{ seccion.total_filas }} filas</span></div>
+  {% include "reportes/_tabla.html" with columnas=seccion.columnas filas=seccion.filas totales=seccion.totales mostrar_totales=True %}
+  {% if seccion.recortada %}<div class="tarjeta__cuerpo"><p class="campo__ayuda">En pantalla se muestran las primeras {{ limite }} filas de {{ seccion.total_filas }}. El CSV y el PDF las traen todas.</p></div>{% endif %}
+  {% if seccion.nota %}<div class="tarjeta__cuerpo"><p class="campo__ayuda">{{ seccion.nota }}</p></div>{% endif %}
+</section>
+{% endfor %}
+
+{% if reporte.nota %}<p class="campo__ayuda">{{ reporte.nota }}</p>{% endif %}
 {% endblock %}
