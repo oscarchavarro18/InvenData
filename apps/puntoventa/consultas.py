@@ -3,20 +3,18 @@
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Exists, OuterRef, Sum
 from django.utils import timezone
 
 from apps.maestros.models import TipoUbicacion, Ubicacion
 from apps.puntoventa.models import (
     MovimientoPuntoVenta,
-    TipoMovimientoPdv,
+    SentidoMovimientoPdv,
     VentaConsumidorFinalLinea,
     VentaRestauranteRemisionLinea,
 )
 
 CERO = Decimal("0")
-# Para el informe del PDV (DBML): entradas suman y ventas restan; aquí no hay traslados.
-ENTRADAS = [TipoMovimientoPdv.ENTRADA_TRASLADO, TipoMovimientoPdv.INVENTARIO_INICIAL]
 
 
 def puntos_visibles(usuario):
@@ -46,7 +44,8 @@ def _rango(desde, hasta):
 def historial_pdv(ubicacion, desde, hasta, producto=None):
     """Entradas por traslado y salidas por venta de un PDV en un rango de fechas (RF-49).
 
-    Cada movimiento trae `entrada` (verdadero si suma); van en orden cronológico.
+    También aparecen los ajustes y reversos del Gerente. Cada movimiento trae `entrada`
+    (verdadero si suma) y `reversado` (si ya tiene un reverso); van en orden cronológico.
     """
     inicio, fin = _rango(desde, hasta)
     movimientos = MovimientoPuntoVenta.objects.filter(
@@ -54,25 +53,30 @@ def historial_pdv(ubicacion, desde, hasta, producto=None):
     )
     if producto is not None:
         movimientos = movimientos.filter(producto=producto)
+    reversos = MovimientoPuntoVenta.objects.filter(movimiento_punto_venta_reversado=OuterRef("pk"))
     movimientos = list(
-        movimientos.select_related("producto", "usuario").order_by("fecha_hora", "id")
+        movimientos.select_related("producto", "usuario")
+        .annotate(reversado=Exists(reversos))
+        .order_by("fecha_hora", "id")
     )
     for movimiento in movimientos:
-        movimiento.entrada = movimiento.tipo in ENTRADAS
+        movimiento.entrada = movimiento.sentido == SentidoMovimientoPdv.ENTRADA
     return movimientos
 
 
 def totales_del_rango(ubicacion, desde, hasta, producto=None):
-    """Total que entró y total que salió por ventas en el rango."""
+    """Total que entró y total que salió del punto en el rango (ventas y ajustes)."""
     inicio, fin = _rango(desde, hasta)
     movimientos = MovimientoPuntoVenta.objects.filter(
         ubicacion=ubicacion, fecha_hora__gte=inicio, fecha_hora__lt=fin
     )
     if producto is not None:
         movimientos = movimientos.filter(producto=producto)
-    entradas = movimientos.filter(tipo__in=ENTRADAS).aggregate(t=Sum("cantidad"))["t"]
-    ventas = movimientos.filter(tipo=TipoMovimientoPdv.VENTA).aggregate(t=Sum("cantidad"))["t"]
-    return entradas or CERO, ventas or CERO
+
+    def total(sentido):
+        return movimientos.filter(sentido=sentido).aggregate(t=Sum("cantidad"))["t"] or CERO
+
+    return total(SentidoMovimientoPdv.ENTRADA), total(SentidoMovimientoPdv.SALIDA)
 
 
 def ventas_del_dia(ubicacion, fecha=None):

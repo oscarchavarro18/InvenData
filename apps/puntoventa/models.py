@@ -29,6 +29,23 @@ class TipoMovimientoPdv(models.TextChoices):
     INVENTARIO_INICIAL = "INVENTARIO_INICIAL", "Inventario inicial"
 
 
+class SentidoMovimientoPdv(models.TextChoices):
+    """Si el movimiento suma o resta a la existencia del punto.
+
+    Para entradas por traslado, inventario inicial y ventas lo fija el tipo; un ajuste de
+    gerencia puede ir en cualquier sentido, y el informe del PDV (RF-64) necesita saber cuál.
+    Es la única columna que se agrega al diccionario de datos en este módulo.
+    """
+
+    ENTRADA = "ENTRADA", "Entrada"
+    SALIDA = "SALIDA", "Salida"
+
+
+# Lo que el tipo impone y lo que impone el motivo de un ajuste (RF-53).
+TIPOS_DE_ENTRADA_PDV = [TipoMovimientoPdv.ENTRADA_TRASLADO, TipoMovimientoPdv.INVENTARIO_INICIAL]
+MOTIVOS_QUE_RESTAN = [MotivoAjuste.PERDIDA, MotivoAjuste.VENCIMIENTO]
+
+
 class MovimientoPuntoVenta(ModeloCreacion):
     ubicacion = models.ForeignKey(
         Ubicacion, on_delete=models.PROTECT, related_name="movimientos_punto_venta"
@@ -37,7 +54,8 @@ class MovimientoPuntoVenta(ModeloCreacion):
         Producto, on_delete=models.PROTECT, related_name="movimientos_punto_venta"
     )
     tipo = models.CharField(max_length=20, choices=TipoMovimientoPdv.choices)
-    cantidad = models.DecimalField(max_digits=10, decimal_places=2)  # el signo lo da el tipo
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2)  # siempre positiva
+    sentido = models.CharField(max_length=7, choices=SentidoMovimientoPdv.choices)
     fecha_hora = models.DateTimeField(default=timezone.now)
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="movimientos_pdv"
@@ -88,6 +106,43 @@ class MovimientoPuntoVenta(ModeloCreacion):
                     | (Q(observacion__isnull=False) & ~Q(observacion=""))
                 ),
                 name="mov_pdv_observacion_obligatoria",
+            ),
+            models.CheckConstraint(
+                condition=Q(sentido__in=SentidoMovimientoPdv.values), name="mov_pdv_sentido_valido"
+            ),
+            # Entradas y ventas tienen su sentido fijo; solo el ajuste elige.
+            models.CheckConstraint(
+                condition=(
+                    Q(tipo__in=TIPOS_DE_ENTRADA_PDV, sentido=SentidoMovimientoPdv.ENTRADA)
+                    | Q(tipo=TipoMovimientoPdv.VENTA, sentido=SentidoMovimientoPdv.SALIDA)
+                    | Q(tipo=TipoMovimientoPdv.AJUSTE_CONTEO)
+                ),
+                name="mov_pdv_sentido_coherente",
+            ),
+            # Pérdida y vencimiento restan; un sobrante suma (RF-53).
+            models.CheckConstraint(
+                condition=(
+                    (
+                        ~Q(motivo_ajuste__in=MOTIVOS_QUE_RESTAN)
+                        | Q(sentido=SentidoMovimientoPdv.SALIDA)
+                    )
+                    & (
+                        ~Q(motivo_ajuste=MotivoAjuste.SOBRANTE)
+                        | Q(sentido=SentidoMovimientoPdv.ENTRADA)
+                    )
+                ),
+                name="mov_pdv_sentido_del_motivo",
+            ),
+            # Un reverso es siempre un ajuste por error de registro, igual que en bodega (RF-09).
+            models.CheckConstraint(
+                condition=(
+                    Q(movimiento_punto_venta_reversado__isnull=True)
+                    | Q(
+                        tipo=TipoMovimientoPdv.AJUSTE_CONTEO,
+                        motivo_ajuste=MotivoAjuste.ERROR_CONTEO,
+                    )
+                ),
+                name="mov_pdv_reverso_es_ajuste_por_error",
             ),
         ]
 

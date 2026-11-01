@@ -28,7 +28,7 @@
   {% endif %}
   <div class="datos">
     <div><div class="dato__etiqueta">Entró</div><div class="dato__valor">{{ entradas|floatformat:2 }} kg</div></div>
-    <div><div class="dato__etiqueta">Se vendió</div><div class="dato__valor">{{ ventas|floatformat:2 }} kg</div></div>
+    <div><div class="dato__etiqueta">Salió</div><div class="dato__valor">{{ salidas|floatformat:2 }} kg</div></div>
   </div>
   <div class="tabla-caja">
     <table class="tabla tabla--apilada">
@@ -40,6 +40,10 @@
           <td data-label="Movimiento">
             {% if movimiento.entrada %}<span class="pill pill--verde">Entrada</span>{% else %}<span class="pill pill--azul">Salida</span>{% endif %}
             {{ movimiento.get_tipo_display }}
+            {% if movimiento.motivo_ajuste %}<span class="tabla__secundario">{{ movimiento.get_motivo_ajuste_display }}: {{ movimiento.observacion }}</span>{% endif %}
+            {% if movimiento.movimiento_punto_venta_reversado_id %}<span class="pill pill--ambar">Reverso</span>{% endif %}
+            {% if movimiento.reversado %}<span class="pill pill--gris">Reversado</span>{% endif %}
+            {% if user.es_gerente and not movimiento.reversado and not movimiento.movimiento_punto_venta_reversado_id %}<a class="boton boton--claro boton--chico" href="{% url 'conteo:reverso_pdv' movimiento.pk %}">Reversar</a>{% endif %}
           </td>
           <td data-label="Producto">{{ movimiento.producto.nombre }}</td>
           <td data-label="Cantidad" class="num">{% if not movimiento.entrada %}−{% endif %}{{ movimiento.cantidad|floatformat:2 }} kg</td>

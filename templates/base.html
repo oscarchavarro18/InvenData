@@ -96,6 +96,12 @@
         Historial PDV
       </a>
       {% endif %}
+      {% if user.ve_bodega or user.ve_algun_punto_venta %}
+      <a class="menu__item{% if ruta.namespace == 'conteo' %} menu__item--activo{% endif %}" href="{% url 'conteo:conteo_lista' %}"{% if ruta.namespace == 'conteo' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
+        Conteo físico
+      </a>
+      {% endif %}
     </nav>
     <div class="lateral__pie">Pid Consulting S.A.S.<br>Neiva, Huila</div>
   </aside>

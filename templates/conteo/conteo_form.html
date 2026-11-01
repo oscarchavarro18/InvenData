@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titulo %}Nuevo conteo · InvenData{% endblock %}
+{% block encabezado %}Nuevo conteo físico{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'conteo:conteo_lista' %}">← Volver a conteos</a>
+<form method="post" novalidate class="tarjeta">
+  {% csrf_token %}
+  {{ formset.management_form }}
+  <div class="tarjeta__cabeza"><h2>Jornada de conteo</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada tabla--formulario">
+      <thead><tr><th>Producto</th><th>Bultos o cajas</th></tr></thead>
+      <tbody>
+        {% for linea in formset %}
+        <tr>
+          <td data-label="Producto">{{ linea.producto }}{% for error in linea.producto.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}</td>
+          <td data-label="Bultos o cajas">{{ linea.cantidad_bultos }}{% for error in linea.cantidad_bultos.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tarjeta__cuerpo">
+    <p class="campo__ayuda">Cuente bultos o cajas, sin pesar ni separar por lote. Si encuentra una diferencia real con el sistema, el Gerente la corrige con un ajuste justificado.</p>
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{% url 'conteo:conteo_lista' %}">Cancelar</a>
+      <button class="boton" type="submit">Registrar conteo</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

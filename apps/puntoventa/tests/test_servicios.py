@@ -51,10 +51,16 @@ def test_solo_se_mueve_inventario_en_un_punto_de_venta(bodega, producto, gerente
         _mover(bodega, producto, gerente, "ENTRADA_TRASLADO", "5")
 
 
-def test_los_ajustes_no_entran_por_esta_via_todavia(punto_venta, producto, gerente):
-    """El ajuste de gerencia en PDV, con su motivo, llega con M8."""
-    with pytest.raises(MovimientoPdvInvalido, match="no se registra"):
+def test_un_ajuste_exige_sentido_motivo_y_observacion(punto_venta, producto, gerente):
+    """RF-53 y RN-35: el ajuste del Gerente nunca va sin justificar (detalle en M8)."""
+    with pytest.raises(MovimientoPdvInvalido, match="suma o resta"):
         _mover(punto_venta, producto, gerente, "AJUSTE_CONTEO", "5")
+
+
+def test_cada_movimiento_guarda_su_sentido(punto_venta, producto, gerente):
+    entrada = _mover(punto_venta, producto, gerente, "ENTRADA_TRASLADO", "5")
+    venta = _mover(punto_venta, producto, gerente, "VENTA", "2")
+    assert (entrada.sentido, venta.sentido) == ("ENTRADA", "SALIDA")
 
 
 @pytest.mark.parametrize("cantidad", ["0", "-1", "1.234", "abc"])
