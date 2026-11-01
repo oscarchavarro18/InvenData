@@ -64,7 +64,7 @@ def test_login_y_pagina_de_inicio(client, gerente):
     assert client.login(username="gerente", password="ClaveSegura123")
     respuesta = client.get("/")
     assert respuesta.status_code == 200
-    assert "Dashboard" in respuesta.content.decode()
+    assert "Cadena del día" in respuesta.content.decode()
 
 
 def test_admin_solo_para_gerente(client, gerente, jefe_bodega):

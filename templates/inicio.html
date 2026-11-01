@@ -1,105 +1,143 @@
 {% extends "base.html" %}
-{% block titulo %}Dashboard · InvenData{% endblock %}
-{% block encabezado %}Dashboard{% endblock %}
+{% block titulo %}Inicio · InvenData{% endblock %}
+{% block cabecera %}{% endblock %}
 {% block contenido %}
-<div class="barra">
-  <p class="barra__texto">Bienvenido, {{ user.nombre_completo }}.{% if user.ve_bodega %} Este es el estado de la bodega.{% endif %}</p>
+<div class="saludo">
+  <div>
+    <div class="sobretitulo">{% now "l j \d\e F" %}</div>
+    <h1>{{ saludo }}, <span class="saludo__resalte">{{ user.nombre_completo|default:user.usuario }}</span>.{% if user.ve_bodega %} Esto es lo que se mueve hoy.{% endif %}</h1>
+  </div>
   <div class="barra__acciones">
-    {% if user.puede_operar_recepcion %}<a class="boton" href="{% url 'recepcion:documento_crear' %}">Nuevo documento del proveedor</a>{% endif %}
+    {% if user.puede_operar_recepcion %}<a class="boton boton--registrar" href="{% url 'recepcion:documento_crear' %}">{% include "componentes/icono.html" with nombre="sumar" %}Nuevo documento del proveedor</a>{% endif %}
+    {% if nav.reportes %}<a class="boton boton--claro" href="{{ nav.reportes.url }}">Ver reportes</a>{% endif %}
   </div>
 </div>
 
 {% if user.ve_bodega %}
-<section class="indicadores" aria-label="Indicadores">
-  <div class="indicador">
-    <div class="indicador__etiqueta">Documentos abiertos</div>
-    <div class="indicador__valor">{{ documentos_abiertos }}</div>
-    <div class="indicador__nota">Recepciones en proceso</div>
+<section class="tarjeta cadena" aria-labelledby="cadena-titulo">
+  <div class="seccion-titulo">
+    <h2 id="cadena-titulo">Cadena del día</h2>
+    <span>Toque una etapa para ver solo sus pendientes</span>
   </div>
-  <div class="indicador">
-    <div class="indicador__etiqueta">Existencia en bodega</div>
-    <div class="indicador__valor">{{ kg_en_bodega|floatformat:2 }} <small>kg</small></div>
-    <div class="indicador__nota">En todas las ubicaciones</div>
-  </div>
-  <div class="indicador">
-    <div class="indicador__etiqueta">Lotes con existencia</div>
-    <div class="indicador__valor">{{ lotes_con_existencia }}</div>
-    <div class="indicador__nota">Con producto disponible</div>
-  </div>
-  <div class="indicador">
-    <div class="indicador__etiqueta">Por vencer</div>
-    <div class="indicador__valor{% if n_por_vencer %} indicador__valor--critico{% endif %}">{{ n_por_vencer }}</div>
-    <div class="indicador__nota">Vencen en {{ dias_por_vencer }} días o menos</div>
+  <div class="cadena__pista">
+    <ol class="cadena__etapas">
+      {% for etapa in cadena %}
+      <li>
+        <button class="etapa{% if etapa.alerta %} etapa--alerta{% endif %}" type="button" data-etapa="{{ etapa.id }}" aria-pressed="false">
+          <span class="etapa__paso">{{ etapa.paso }}</span>
+          <span class="etapa__nombre">{{ etapa.nombre }}</span>
+          <span class="etapa__cifra" data-contar="{{ etapa.kg|stringformat:'.2f' }}" data-decimales="2">{{ etapa.kg|floatformat:2 }} <small>kg</small></span>
+          <span class="etapa__nota">{{ etapa.nota }}</span>
+        </button>
+      </li>
+      {% endfor %}
+    </ol>
   </div>
 </section>
 
-<div class="dos-columnas">
-  <section class="tarjeta">
+<div class="inicio-columnas">
+  <section class="tarjeta" aria-labelledby="pendientes-titulo">
     <div class="tarjeta__cabeza">
-      <h2>Recepciones recientes</h2>
-      <a class="boton boton--claro boton--chico" href="{% url 'recepcion:documento_lista' %}">Ver todas</a>
+      <h2 id="pendientes-titulo">Pendientes<span class="contador">{{ total_pendientes }}</span></h2>
+      <button class="boton boton--claro boton--chico" type="button" data-quitar-filtro hidden>Ver todos</button>
     </div>
-    <div class="tabla-caja">
-      <table class="tabla tabla--densa tabla--apilada">
-        <thead>
-          <tr><th>Documento</th><th>Proveedor</th><th>Fecha</th><th>Estado</th></tr>
-        </thead>
-        <tbody>
-          {% for documento in recientes %}
-          <tr>
-            <td><a class="tabla__principal" href="{% url 'recepcion:documento_detalle' documento.pk %}">{{ documento }}</a></td>
-            <td data-label="Proveedor">{{ documento.proveedor.razon_social }}</td>
-            <td data-label="Fecha">{{ documento.fecha|date:"d/m/Y" }}</td>
-            <td data-label="Estado">{% include "componentes/pill_documento.html" with estado=documento.estado %}</td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="4" class="tabla__vacia">Todavía no hay recepciones.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    <ul class="pendientes">
+      {% for p in pendientes %}
+      <li class="pendiente{% if p.tono %} pendiente--{{ p.tono }}{% endif %}" data-de-etapa="{{ p.etapa }}">
+        <span class="pendiente__marca" aria-hidden="true"></span>
+        <span class="pendiente__texto">
+          <span class="pendiente__titulo">{{ p.titulo }}</span>
+          <span class="pendiente__detalle">{{ p.detalle }}</span>
+        </span>
+        {% if p.fecha %}<time class="pendiente__hace" datetime="{{ p.fecha|date:'c' }}">{{ p.fecha|date:"d M · H:i" }}</time>{% endif %}
+        <a class="boton{% if not p.principal %} boton--claro{% endif %} boton--chico" href="{{ p.url }}">{{ p.accion }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="pendientes__vacio" data-sin-pendientes{% if pendientes %} hidden{% endif %}>Nada pendiente por ahora. Todo al día.</p>
   </section>
 
-  <section class="tarjeta">
-    <div class="tarjeta__cabeza">
-      <h2>Próximos a vencer</h2>
-      <a class="boton boton--claro boton--chico" href="{% url 'inventario:existencias' %}">Ver inventario</a>
-    </div>
-    <div class="tabla-caja">
-      <table class="tabla tabla--densa tabla--apilada">
-        <thead>
-          <tr><th>Lote</th><th>Producto</th><th class="num">Existencia</th><th>Vence</th></tr>
-        </thead>
-        <tbody>
-          {% for lote in por_vencer %}
-          <tr>
-            <td><a class="tabla__principal" href="{% url 'inventario:lote_detalle' lote.pk %}">{{ lote.codigo }}</a></td>
-            <td data-label="Producto">{{ lote.producto.nombre }}</td>
-            <td data-label="Existencia" class="num">{{ lote.kg|floatformat:2 }} kg</td>
-            <td data-label="Vence">
-              {% if lote.dias_restantes < 0 %}<span class="pill pill--rojo">Vencido</span>
-              {% elif lote.dias_restantes <= 2 %}<span class="pill pill--rojo">{{ lote.dias_restantes }} d</span>
-              {% else %}<span class="pill pill--ambar">{{ lote.dias_restantes }} d</span>{% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="4" class="tabla__vacia">No hay lotes por vencer.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <div>
+    <section class="bloque-vencen" aria-labelledby="vencen-titulo">
+      <div class="seccion-titulo">
+        <h2 id="vencen-titulo">Vencen primero</h2>
+        <a href="{% url 'inventario:existencias' %}">Ver inventario</a>
+      </div>
+      <div class="rotulos">
+        {% for lote in por_vencer %}
+        <a class="rotulo{% if lote.dias_restantes <= 2 %} rotulo--urgente{% endif %}" href="{% url 'inventario:lote_detalle' lote.pk %}">
+          <span class="rotulo__dias">
+            {% if lote.dias_restantes < 0 %}<span class="rotulo__numero">!</span><span class="rotulo__unidad">Vencido</span>
+            {% else %}<span class="rotulo__numero">{{ lote.dias_restantes }}</span><span class="rotulo__unidad">{% if lote.dias_restantes == 1 %}día{% else %}días{% endif %}</span>{% endif %}
+          </span>
+          <span class="rotulo__corte" aria-hidden="true"></span>
+          <span class="rotulo__cuerpo">
+            <span class="rotulo__producto">{{ lote.producto.nombre }}</span>
+            <span class="rotulo__codigo">{{ lote.codigo }} · vence {{ lote.fecha_vencimiento|date:"d/m" }}</span>
+          </span>
+          <span class="rotulo__kg">{{ lote.kg|floatformat:2 }} kg</span>
+        </a>
+        {% empty %}
+        <p class="rotulos__vacio">No hay lotes por vencer en los próximos {{ dias_por_vencer }} días.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="recientes-titulo">
+      <div class="tarjeta__cabeza">
+        <h2 id="recientes-titulo">Recepciones recientes</h2>
+        <a class="boton boton--claro boton--chico" href="{% url 'recepcion:documento_lista' %}">Ver todas</a>
+      </div>
+      <ul class="recientes">
+        {% for documento in recientes %}
+        <li>
+          <span>
+            <a class="tabla__principal" href="{% url 'recepcion:documento_detalle' documento.pk %}">{{ documento }}</a>
+            <span class="tabla__secundario">{{ documento.proveedor.razon_social }} · {{ documento.fecha|date:"d/m/Y" }}</span>
+          </span>
+          {% include "componentes/pill_documento.html" with estado=documento.estado %}
+        </li>
+        {% empty %}
+        <li class="vacio">Todavía no hay recepciones.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
 </div>
+
+<section class="cifras" aria-label="Cifras de la bodega">
+  <div class="cifra-bloque">
+    <span class="indicador__etiqueta">Documentos abiertos</span>
+    <span class="indicador__valor" data-contar="{{ documentos_abiertos }}">{{ documentos_abiertos }} </span>
+    <span class="indicador__nota">Recepciones en proceso</span>
+  </div>
+  <div class="cifra-bloque">
+    <span class="indicador__etiqueta">Existencia en bodega</span>
+    <span class="indicador__valor" data-contar="{{ kg_en_bodega|stringformat:'.2f' }}" data-decimales="2">{{ kg_en_bodega|floatformat:2 }} <small>kg</small></span>
+    <span class="indicador__nota">En todas las zonas</span>
+  </div>
+  <div class="cifra-bloque">
+    <span class="indicador__etiqueta">Lotes con existencia</span>
+    <span class="indicador__valor" data-contar="{{ lotes_con_existencia }}">{{ lotes_con_existencia }} </span>
+    <span class="indicador__nota">Con producto disponible</span>
+  </div>
+  <div class="cifra-bloque">
+    <span class="indicador__etiqueta">Por vencer</span>
+    <span class="indicador__valor{% if n_por_vencer %} indicador__valor--critico{% endif %}" data-contar="{{ n_por_vencer }}">{{ n_por_vencer }} </span>
+    <span class="indicador__nota">Vencen en {{ dias_por_vencer }} días o menos</span>
+  </div>
+</section>
+
 {% else %}
 {% if ventas_hoy %}
 <section class="indicadores" aria-label="Indicadores del punto">
   <div class="indicador">
     <div class="indicador__etiqueta">Ventas de hoy</div>
-    <div class="indicador__valor">{{ ventas_hoy.ventas }}</div>
+    <div class="indicador__valor" data-contar="{{ ventas_hoy.ventas }}">{{ ventas_hoy.ventas }} </div>
   </div>
   <div class="indicador">
     <div class="indicador__etiqueta">Vendido hoy</div>
-    <div class="indicador__valor">{{ ventas_hoy.kg|floatformat:2 }} <small>kg</small></div>
+    <div class="indicador__valor" data-contar="{{ ventas_hoy.kg|stringformat:'.2f' }}" data-decimales="2">{{ ventas_hoy.kg|floatformat:2 }} <small>kg</small></div>
   </div>
   <div class="indicador">
     <div class="indicador__etiqueta">Traslados por recibir</div>
@@ -107,27 +145,25 @@
   </div>
 </section>
 {% endif %}
-<section class="tarjeta">
+<section class="tarjeta" aria-labelledby="recibir-titulo">
   <div class="tarjeta__cabeza">
-    <h2>Traslados por recibir</h2>
+    <h2 id="recibir-titulo">Traslados por recibir</h2>
     <a class="boton boton--claro boton--chico" href="{% url 'despacho:traslado_lista' %}">Ver todos</a>
   </div>
-  <div class="tabla-caja">
-    <table class="tabla tabla--densa tabla--apilada">
-      <thead><tr><th>Traslado</th><th>Enviado</th><th>Entrega</th></tr></thead>
-      <tbody>
-        {% for traslado in por_recibir %}
-        <tr>
-          <td><a class="tabla__principal" href="{% url 'despacho:traslado_detalle' traslado.pk %}">{{ traslado.consecutivo }}</a></td>
-          <td data-label="Enviado">{{ traslado.fecha_hora|date:"d/m/Y H:i" }}</td>
-          <td data-label="Entrega">{{ traslado.nombre_entrega }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="3" class="tabla__vacia">No hay traslados pendientes de recibir.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  <ul class="pendientes">
+    {% for traslado in por_recibir %}
+    <li class="pendiente pendiente--alerta">
+      <span class="pendiente__marca" aria-hidden="true"></span>
+      <span class="pendiente__texto">
+        <span class="pendiente__titulo">Verificar el traslado {{ traslado.consecutivo }}</span>
+        <span class="pendiente__detalle">Lo entrega {{ traslado.nombre_entrega }} · enviado {{ traslado.fecha_hora|date:"d/m/Y H:i" }}</span>
+      </span>
+      <a class="boton boton--chico" href="{% url 'despacho:traslado_detalle' traslado.pk %}">Verificar</a>
+    </li>
+    {% empty %}
+    <li class="pendientes__vacio">No hay traslados pendientes de recibir.</li>
+    {% endfor %}
+  </ul>
 </section>
 <section class="tarjeta">
   <p class="vacio">Desde el módulo de punto de venta registra las <a href="{% url 'puntoventa:venta_lista' %}">ventas</a>, consulta la <a href="{% url 'puntoventa:existencias' %}">existencia de su punto</a> y su <a href="{% url 'puntoventa:historial' %}">historial</a>.</p>
