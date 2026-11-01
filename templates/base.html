@@ -67,10 +67,6 @@
         Traslados a PDV
       </a>
       {% endwith %}
-      <span class="menu__item menu__item--apagado" aria-disabled="true">
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-        Reportes<span class="menu__pronto">Pronto</span>
-      </span>
       <a class="menu__item{% if ruta.url_name == 'configuracion' %} menu__item--activo{% endif %}" href="{% url 'maestros:configuracion' %}"{% if ruta.url_name == 'configuracion' %} aria-current="page"{% endif %}>
         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
         Configuración
@@ -104,6 +100,10 @@
       <a class="menu__item{% if ruta.namespace == 'levantamiento' %} menu__item--activo{% endif %}" href="{% url 'levantamiento:levantamiento_lista' %}"{% if ruta.namespace == 'levantamiento' %} aria-current="page"{% endif %}>
         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg>
         Inventario inicial
+      </a>
+      <a class="menu__item{% if ruta.namespace == 'reportes' %} menu__item--activo{% endif %}" href="{% url 'reportes:indice' %}"{% if ruta.namespace == 'reportes' %} aria-current="page"{% endif %}>
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        Reportes
       </a>
       {% endif %}
     </nav>
