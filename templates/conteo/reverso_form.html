@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titulo %}Reversar movimiento · InvenData{% endblock %}
+{% block encabezado %}Reversar movimiento{% endblock %}
+{% block contenido %}
+<a class="volver" href="{{ volver }}">← Volver</a>
+<form method="post" novalidate class="tarjeta tarjeta--angosta" data-confirmar="¿Reversar el movimiento? Se crea uno inverso y el original se conserva.">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>{{ movimiento.get_tipo_display }}</h2></div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ movimiento.fecha_hora|date:"d/m/Y H:i" }}</div></div>
+    <div><div class="dato__etiqueta">Cantidad</div><div class="dato__valor">{{ movimiento.cantidad|floatformat:2 }} kg</div></div>
+    {% if movimiento.lote %}<div><div class="dato__etiqueta">Lote</div><div class="dato__valor">{{ movimiento.lote.codigo }}</div></div>{% endif %}
+    {% if movimiento.producto %}<div><div class="dato__etiqueta">Producto</div><div class="dato__valor">{{ movimiento.producto.nombre }}</div></div>{% endif %}
+  </div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="campo">
+      <label class="etiqueta" for="{{ form.observacion.id_for_label }}">{{ form.observacion.label }}</label>
+      {{ form.observacion }}
+      {% for error in form.observacion.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+    </div>
+    <p class="campo__ayuda">Ningún registro se edita ni se borra (RF-09): el reverso deja el efecto contrario y apunta al original, que se conserva en el historial.</p>
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{{ volver }}">Cancelar</a>
+      <button class="boton boton--peligro" type="submit">Reversar</button>
+    </div>
+  </div>
+</form>
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+</script>
+{% endblock %}

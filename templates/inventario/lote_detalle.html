@@ -61,6 +61,7 @@
               <a class="boton boton--claro boton--chico" href="{% url 'inventario:trasladar' lote.pk existencia.ubicacion.pk %}">Trasladar</a>
               {% if lote.producto.admite_transformacion and lote.estado == "DISPONIBLE" %}<a class="boton boton--claro boton--chico" href="{% url 'transformacion:orden_crear' lote.pk existencia.ubicacion.pk %}">Transformar</a>{% endif %}
               {% if lote.estado == "DISPONIBLE" and lote.origen != "TRANSFORMACION" and existencia.ubicacion.tipo != "ZONA_BULTOS" %}<a class="boton boton--claro boton--chico" href="{% url 'embultaje:registro_crear' lote.pk existencia.ubicacion.pk %}">Embultar</a>{% endif %}
+              {% if user.es_gerente %}<a class="boton boton--claro boton--chico" href="{% url 'conteo:ajuste_bodega' lote.pk existencia.ubicacion.pk %}">Ajustar</a>{% endif %}
             </td>
             {% endif %}
           </tr>
@@ -119,6 +120,7 @@
             {% if movimiento.motivo_ajuste %}<span class="tabla__secundario">{{ movimiento.get_motivo_ajuste_display }}</span>{% endif %}
             {% if movimiento.movimiento_reversado_id %}<span class="pill pill--ambar">Reverso</span>{% endif %}
             {% if movimiento.reversado %}<span class="pill pill--gris">Reversado</span>{% endif %}
+            {% if user.es_gerente and not movimiento.reversado and not movimiento.movimiento_reversado_id %}<a class="boton boton--claro boton--chico" href="{% url 'conteo:reverso_bodega' movimiento.pk %}">Reversar</a>{% endif %}
           </td>
           <td data-label="Sentido">
             {% if movimiento.sentido == "ENTRADA" %}<span class="pill pill--verde">Entrada</span>

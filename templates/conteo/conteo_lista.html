@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Conteo físico · InvenData{% endblock %}
+{% block encabezado %}Conteo físico{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Conteo aproximado de bultos o cajas por producto. Es una referencia de control: no modifica la existencia del sistema.</p>
+  <div class="barra__acciones">
+    {% if puede_registrar %}<a class="boton" href="{% url 'conteo:conteo_nuevo' %}">Nuevo conteo</a>{% endif %}
+  </div>
+</div>
+<div class="tarjeta">
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Fecha</th><th>Ubicación</th><th>Contó</th></tr></thead>
+      <tbody>
+        {% for conteo in pagina %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'conteo:conteo_detalle' conteo.pk %}">{{ conteo.fecha|date:"d/m/Y" }}</a></td>
+          <td data-label="Ubicación">{{ conteo.ubicacion.nombre }}</td>
+          <td data-label="Contó">{{ conteo.usuario.nombre_completo }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="tabla__vacia">Todavía no hay conteos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}

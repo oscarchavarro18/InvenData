@@ -197,7 +197,7 @@ def historial(request):
     form = HistorialForm(request.GET)
     desde, hasta, producto = form.rango()
     movimientos = historial_pdv(punto, desde, hasta, producto) if punto else []
-    entradas, ventas = totales_del_rango(punto, desde, hasta, producto) if punto else (0, 0)
+    entradas, salidas = totales_del_rango(punto, desde, hasta, producto) if punto else (0, 0)
     pagina, consulta = paginar(request, movimientos)
     contexto = {
         "punto": punto,
@@ -206,6 +206,6 @@ def historial(request):
         "pagina": pagina,
         "consulta": consulta,
         "entradas": entradas,
-        "ventas": ventas,
+        "salidas": salidas,
     }
     return render(request, "puntoventa/historial.html", contexto)

@@ -15,10 +15,13 @@
   </form>
   {% endif %}
   {% if punto %}
-  <div class="tarjeta__cabeza"><h2>{{ punto.nombre }}</h2></div>
+  <div class="tarjeta__cabeza">
+    <h2>{{ punto.nombre }}</h2>
+    {% if user.es_gerente %}<a class="boton boton--claro boton--chico" href="{% url 'conteo:ajuste_pdv' %}?ubicacion={{ punto.pk }}">Ajustar existencia</a>{% endif %}
+  </div>
   <div class="tabla-caja">
     <table class="tabla tabla--apilada">
-      <thead><tr><th>Producto</th><th>Código</th><th class="num">Cantidad</th><th>Actualizado</th></tr></thead>
+      <thead><tr><th>Producto</th><th>Código</th><th class="num">Cantidad</th><th>Actualizado</th>{% if user.es_gerente %}<th>Acción</th>{% endif %}</tr></thead>
       <tbody>
         {% for fila in pagina %}
         <tr>
@@ -26,9 +29,10 @@
           <td data-label="Código">{{ fila.producto.codigo }}</td>
           <td data-label="Cantidad" class="num">{{ fila.cantidad|floatformat:2 }} kg</td>
           <td data-label="Actualizado">{{ fila.actualizado_en|date:"d/m/Y H:i" }}</td>
+          {% if user.es_gerente %}<td><a class="boton boton--claro boton--chico" href="{% url 'conteo:ajuste_pdv' %}?ubicacion={{ punto.pk }}&amp;producto={{ fila.producto_id }}">Ajustar</a></td>{% endif %}
         </tr>
         {% empty %}
-        <tr><td colspan="4" class="tabla__vacia">El punto de venta todavía no tiene producto. Llega cuando acepta un traslado de bodega.</td></tr>
+        <tr><td colspan="{% if user.es_gerente %}5{% else %}4{% endif %}" class="tabla__vacia">El punto de venta todavía no tiene producto. Llega cuando acepta un traslado de bodega.</td></tr>
         {% endfor %}
       </tbody>
     </table>

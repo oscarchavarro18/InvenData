@@ -5,9 +5,10 @@ libro y actualiza la existencia por producto, en una sola transacción, con el m
 `apps.inventario.servicios.registrar_movimiento` en bodega. Nadie debe escribir en
 MovimientoPuntoVenta ni en ExistenciaPuntoVenta por otra vía.
 
-Hoy entran los traslados aceptados (ENTRADA_TRASLADO) y el inventario de arranque; las ventas
-salen con VENTA. Los ajustes de gerencia (AJUSTE_CONTEO) llegan con M8, que define el sentido
-de cada motivo en el punto de venta.
+Entran los traslados aceptados (ENTRADA_TRASLADO) y el inventario de arranque; las ventas
+salen con VENTA. Los ajustes de gerencia (AJUSTE_CONTEO) eligen su sentido según el motivo
+(RF-53) y solo los registra el Gerente (RN-32); un error se corrige con un reverso que
+preserva el original (RF-09), igual que en bodega.
 
 Las ventas (RF-46, RF-47) se registran en un solo paso: el documento, sus líneas y la salida
 de cada producto van en una transacción (RN-31). La remisión a restaurante exige que el
@@ -29,10 +30,13 @@ from apps.auditoria.servicios import (
     registrar,
     validar_evidencia,
 )
+from apps.inventario.models import MotivoAjuste
 from apps.maestros.models import TipoUbicacion
 from apps.puntoventa.models import (
+    MOTIVOS_QUE_RESTAN,
     ExistenciaPuntoVenta,
     MovimientoPuntoVenta,
+    SentidoMovimientoPdv,
     TipoMovimientoPdv,
     VentaConsumidorFinal,
     VentaConsumidorFinalLinea,
@@ -44,9 +48,12 @@ CERO = Decimal("0")
 DOS_DECIMALES = Decimal("0.01")
 LIMITE = Decimal("100000000")  # decimal(10,2): 8 enteros como máximo
 
-# El signo de cada tipo sobre la existencia del PDV (DBML, nota de movimiento_punto_venta).
-SUMAN = {TipoMovimientoPdv.ENTRADA_TRASLADO, TipoMovimientoPdv.INVENTARIO_INICIAL}
-RESTAN = {TipoMovimientoPdv.VENTA}
+# El sentido que impone cada tipo; el ajuste lo elige el Gerente según el motivo.
+SENTIDO_DEL_TIPO = {
+    TipoMovimientoPdv.ENTRADA_TRASLADO: SentidoMovimientoPdv.ENTRADA,
+    TipoMovimientoPdv.INVENTARIO_INICIAL: SentidoMovimientoPdv.ENTRADA,
+    TipoMovimientoPdv.VENTA: SentidoMovimientoPdv.SALIDA,
+}
 
 
 class ErrorPuntoVenta(Exception):
@@ -87,15 +94,52 @@ def _validar_cantidad(cantidad):
     return valor
 
 
+def _sentido(tipo, sentido, usuario, motivo, observacion, reversado):
+    """El sentido del movimiento, con las reglas del ajuste de gerencia (RF-53, RN-32, RN-35)."""
+    if tipo != TipoMovimientoPdv.AJUSTE_CONTEO:
+        if motivo is not None or reversado is not None:
+            raise MovimientoPdvInvalido("El motivo y el reverso solo aplican a los ajustes.")
+        if sentido is not None and sentido != SENTIDO_DEL_TIPO[tipo]:
+            raise MovimientoPdvInvalido(f"Un movimiento {tipo} no va en ese sentido.")
+        return SENTIDO_DEL_TIPO[tipo]
+    if not usuario.es_gerente:
+        raise PermissionDenied("Solo el Gerente registra ajustes en un punto de venta.")
+    if sentido not in SentidoMovimientoPdv.values:
+        raise MovimientoPdvInvalido("Indique si el ajuste suma o resta.")
+    if motivo not in MotivoAjuste.values:
+        raise MovimientoPdvInvalido("El ajuste exige un motivo de la lista.")
+    if observacion is None:
+        raise MovimientoPdvInvalido("El ajuste exige una observación escrita.")
+    if motivo in MOTIVOS_QUE_RESTAN and sentido != SentidoMovimientoPdv.SALIDA:
+        raise MovimientoPdvInvalido(f"Un ajuste por {motivo} resta.")
+    if motivo == MotivoAjuste.SOBRANTE and sentido != SentidoMovimientoPdv.ENTRADA:
+        raise MovimientoPdvInvalido("Un ajuste por SOBRANTE suma.")
+    return sentido
+
+
 @transaction.atomic
-def registrar_movimiento_pdv(*, ubicacion, producto, tipo, cantidad, usuario, fecha_hora=None):
+def registrar_movimiento_pdv(
+    *,
+    ubicacion,
+    producto,
+    tipo,
+    cantidad,
+    usuario,
+    sentido=None,
+    motivo_ajuste=None,
+    observacion=None,
+    movimiento_reversado=None,
+    fecha_hora=None,
+):
     """Registra un movimiento del PDV y actualiza su existencia. Devuelve el movimiento."""
     if ubicacion.tipo != TipoUbicacion.PUNTO_VENTA:
         raise MovimientoPdvInvalido(f"{ubicacion.nombre} no es un punto de venta.")
-    if tipo not in SUMAN | RESTAN:
-        raise MovimientoPdvInvalido(f"El tipo {tipo!r} no se registra por esta vía.")
+    if tipo not in TipoMovimientoPdv.values:
+        raise MovimientoPdvInvalido(f"El tipo de movimiento {tipo!r} no existe.")
     cantidad = _validar_cantidad(cantidad)
-    delta = cantidad if tipo in SUMAN else -cantidad
+    observacion = (observacion or "").strip() or None
+    sentido = _sentido(tipo, sentido, usuario, motivo_ajuste, observacion, movimiento_reversado)
+    delta = cantidad if sentido == SentidoMovimientoPdv.ENTRADA else -cantidad
 
     # Se bloquea la fila: dos ventas o recepciones a la vez no se pisan.
     existencia, _ = ExistenciaPuntoVenta.objects.select_for_update().get_or_create(
@@ -115,8 +159,44 @@ def registrar_movimiento_pdv(*, ubicacion, producto, tipo, cantidad, usuario, fe
         producto=producto,
         tipo=tipo,
         cantidad=cantidad,
+        sentido=sentido,
         usuario=usuario,
+        motivo_ajuste=motivo_ajuste,
+        observacion=observacion,
+        movimiento_punto_venta_reversado=movimiento_reversado,
         **extra,
+    )
+
+
+@transaction.atomic
+def reversar_movimiento_pdv(*, movimiento, usuario, observacion):
+    """Deshace un movimiento del PDV con uno inverso que lo preserva (RF-09, RN-17).
+
+    Sirve, por ejemplo, para una venta mal registrada: el producto vuelve a la vitrina sin
+    editar ni borrar la venta. Es un AJUSTE_CONTEO por ERROR_CONTEO que apunta al original.
+    """
+    if not usuario.es_gerente:
+        raise PermissionDenied("Solo el Gerente reversa movimientos.")
+    original = MovimientoPuntoVenta.objects.select_for_update().get(pk=movimiento.pk)
+    if original.movimiento_punto_venta_reversado_id is not None:
+        raise MovimientoPdvInvalido("Un reverso no se puede reversar.")
+    if original.reversos.exists():
+        raise MovimientoPdvInvalido("El movimiento ya fue reversado.")
+    opuesto = (
+        SentidoMovimientoPdv.SALIDA
+        if original.sentido == SentidoMovimientoPdv.ENTRADA
+        else SentidoMovimientoPdv.ENTRADA
+    )
+    return registrar_movimiento_pdv(
+        ubicacion=original.ubicacion,
+        producto=original.producto,
+        tipo=TipoMovimientoPdv.AJUSTE_CONTEO,
+        cantidad=original.cantidad,
+        usuario=usuario,
+        sentido=opuesto,
+        motivo_ajuste=MotivoAjuste.ERROR_CONTEO,
+        observacion=observacion,
+        movimiento_reversado=original,
     )
 
 
