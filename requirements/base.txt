@@ -3,3 +3,4 @@ Django==5.2.18
 psycopg[binary]==3.3.6
 django-environ==0.14.0
 whitenoise==6.12.0
+reportlab==4.2.5  # PDF de los reportes (RF-66); Python puro, sin librerías del sistema

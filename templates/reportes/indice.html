@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block titulo %}Reportes · InvenData{% endblock %}
+{% block encabezado %}Reportes{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Consulte el estado del inventario y de las ventas. Cada reporte se filtra en pantalla y se descarga en CSV (para Excel) o en PDF con los mismos filtros.</p>
+</div>
+
+<section class="indicadores" aria-label="Reportes disponibles">
+  {% for reporte in reportes %}
+  <a class="indicador indicador--enlace" href="{% url reporte.ruta %}">
+    <div class="indicador__etiqueta">Reporte</div>
+    <div class="indicador__titulo">{{ reporte.titulo }}</div>
+    <div class="indicador__nota">{{ reporte.descripcion }}</div>
+  </a>
+  {% endfor %}
+</section>
+{% endblock %}
