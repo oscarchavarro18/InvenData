@@ -1,32 +1,59 @@
 {% extends "base.html" %}
-{% block titulo %}Iniciar sesión · InvenData{% endblock %}
+{% load static %}
+{% block titulo %}Ingresar · InvenData{% endblock %}
 {% block cuerpo %}
 <main class="ingreso">
-  <div class="ingreso__tarjeta">
-    <div class="ingreso__marca">
-      <span class="marca__logo" aria-hidden="true">I</span>
-      <h1>InvenData</h1>
-      <p>Inventario y trazabilidad de producto</p>
+  <section class="ingreso__lado">
+    <div class="ingreso__sello">Pid Consulting S.A.S. · Neiva, Huila</div>
+    <div>
+      <h2>Del muelle a la vitrina, cada kilo con su historia.</h2>
+      <p>Recepción, transformación, embultaje, despachos y puntos de venta en un solo libro de movimientos, en tiempo real.</p>
+      <ol class="ingreso__ruta">
+        <li><span>01</span>Recepción y pesaje</li>
+        <li><span>02</span>Almacén por lote y zona</li>
+        <li><span>03</span>Transformación y embultaje</li>
+        <li><span>04</span>Despacho y traslado a PDV</li>
+        <li><span>05</span>Venta y trazabilidad</li>
+      </ol>
     </div>
-    <form method="post" novalidate>
-      {% csrf_token %}
-      {% if form.errors %}
-      <div class="alerta alerta-error" role="alert">
-        <span class="alerta__texto">Usuario o contraseña incorrectos, o usuario inactivo.</span>
+    <div class="ingreso__sello">FishPID · La pesca del día</div>
+  </section>
+
+  <div class="ingreso__formulario">
+    <div class="ingreso__tarjeta">
+      <div class="ingreso__marca">
+        <div class="orbe" aria-hidden="true">
+          <span class="orbe__onda"></span>
+          <span class="orbe__onda"></span>
+          <span class="orbe__onda"></span>
+          <span class="orbe__centro"><img src="{% static 'img/logo-fishpid.png' %}" alt="" width="132" height="132"></span>
+        </div>
+        <h1>Ingresar a InvenData</h1>
+        <p>Inventario y trazabilidad de FishPID</p>
       </div>
-      {% endif %}
-      <div class="campo">
-        <label class="etiqueta etiqueta--mayus" for="{{ form.username.id_for_label }}">Usuario</label>
-        {{ form.username }}
-      </div>
-      <div class="campo">
-        <label class="etiqueta etiqueta--mayus" for="{{ form.password.id_for_label }}">Contraseña</label>
-        {{ form.password }}
-      </div>
-      <input type="hidden" name="next" value="{{ next }}">
-      <button class="boton boton--bloque" type="submit">Ingresar</button>
-    </form>
-    <p class="ingreso__pie">Pid Consulting S.A.S. · Neiva, Huila</p>
+      <form method="post" novalidate data-enviando="Ingresando">
+        {% csrf_token %}
+        {% if form.errors %}
+        <div class="alerta alerta-error" role="alert">
+          <span class="alerta__texto">Usuario o contraseña incorrectos, o usuario inactivo.</span>
+        </div>
+        {% endif %}
+        <div class="campo">
+          <label class="etiqueta" for="{{ form.username.id_for_label }}">Usuario</label>
+          {{ form.username }}
+        </div>
+        <div class="campo">
+          <label class="etiqueta" for="{{ form.password.id_for_label }}">Contraseña</label>
+          <div class="campo-clave">
+            {{ form.password }}
+            <button class="campo-clave__ver" type="button" data-ver-clave="{{ form.password.id_for_label }}" aria-pressed="false" hidden>Mostrar</button>
+          </div>
+        </div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button class="boton boton--registrar boton--bloque" type="submit">Ingresar</button>
+      </form>
+      <p class="ingreso__pie"><span>Neiva · Huila</span><span>InvenData</span></p>
+    </div>
   </div>
 </main>
 {% endblock %}

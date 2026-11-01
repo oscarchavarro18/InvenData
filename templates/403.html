@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block titulo %}Sin permiso · InvenData{% endblock %}
-{% block encabezado %}Sin permiso{% endblock %}
+{% block cabecera %}{% endblock %}
 {% block contenido %}
-<section class="tarjeta tarjeta--angosta">
-  <div class="tarjeta__cuerpo">
-    <h2>No tiene permiso para esta acción</h2>
-    <p class="barra__texto">Su perfil ({{ user.perfil }}) no puede realizarla. Si la necesita, pídasela a la gerencia.</p>
-    <a class="boton" href="{% url 'inicio' %}">Volver al inicio</a>
-  </div>
+<section class="error-pagina">
+  <div class="error-pagina__codigo">403</div>
+  <h1 class="pagina-titulo">Sin permiso</h1>
+  <h2 class="error-pagina__sub">No tiene permiso para esta acción</h2>
+  <p class="barra__texto error-pagina__texto">Su perfil ({{ user.perfil }}) no puede realizarla. Si la necesita, pídasela a la gerencia.</p>
+  <a class="boton" href="{% url 'inicio' %}">{% include "componentes/icono.html" with nombre="inicio" %}Volver al inicio</a>
 </section>
 {% endblock %}

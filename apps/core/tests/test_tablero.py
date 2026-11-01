@@ -72,7 +72,7 @@ def test_solo_muestra_cinco_lotes_por_vencer(con_sesion, datos_lote, bodega):
 def test_el_menu_resalta_la_seccion_actual(con_sesion):
     contenido = con_sesion.get(reverse("inicio")).content.decode()
     activo = contenido.split("menu__item--activo")[1][:200]
-    assert "Dashboard" in contenido
+    assert "Cadena del día" in contenido
     assert reverse("inicio") in activo
     recepcion = con_sesion.get(reverse("recepcion:documento_lista")).content.decode()
     assert reverse("recepcion:documento_lista") in recepcion.split("menu__item--activo")[1][:200]

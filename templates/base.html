@@ -2,190 +2,163 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#13213a">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
   <title>{% block titulo %}InvenData{% endblock %}</title>
   <script>document.documentElement.classList.add("js");</script>
+  <link rel="icon" type="image/png" href="{% static 'img/logo-fishpid.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'img/logo-fishpid.png' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="{% static 'css/invendata.css' %}">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+  <link rel="stylesheet" href="{% static 'css/invendata.css' %}?v={{ version_estaticos }}">
+  <script src="{% static 'js/invendata.js' %}?v={{ version_estaticos }}" defer></script>
 </head>
 <body>
 {% block cuerpo %}
-{% with ruta=request.resolver_match %}
 <a class="saltar" href="#contenido">Saltar al contenido</a>
 <div class="app" id="app">
-  <aside class="lateral" id="menu-lateral">
-    <div class="lateral__cabeza">
-      <a class="marca" href="{% url 'inicio' %}">
-        <span class="marca__logo" aria-hidden="true">I</span>InvenData
+  <header class="barra-sup" id="barra-sup">
+    <div class="barra-sup__dentro">
+      <a class="marca" href="{% url 'inicio' %}" aria-label="InvenData, ir al inicio">
+        <img class="marca__logo" src="{% static 'img/logo-fishpid.png' %}" alt="" width="52" height="52">
+        <span class="marca__sep" aria-hidden="true"></span>
+        <span class="marca__nombre">InvenData</span>
       </a>
-      <button class="lateral__cerrar" type="button" data-cerrar-menu aria-label="Cerrar menú">
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
-      </button>
-    </div>
-    <nav class="menu" aria-label="Principal">
-      <a class="menu__item{% if ruta.url_name == 'inicio' %} menu__item--activo{% endif %}" href="{% url 'inicio' %}"{% if ruta.url_name == 'inicio' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-        Dashboard
-      </a>
-      <a class="menu__item{% if ruta.url_name == 'producto_lista' or ruta.url_name == 'producto_crear' %} menu__item--activo{% endif %}" href="{% url 'maestros:producto_lista' %}">
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
-        Productos
-      </a>
-      {% if user.ve_bodega %}
-      <a class="menu__item{% if ruta.namespace == 'recepcion' %} menu__item--activo{% endif %}" href="{% url 'recepcion:documento_lista' %}"{% if ruta.namespace == 'recepcion' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-        Recepción
-      </a>
-      <a class="menu__item{% if ruta.namespace == 'inventario' %} menu__item--activo{% endif %}" href="{% url 'inventario:existencias' %}"{% if ruta.namespace == 'inventario' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l10 5-10 5L2 7l10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-        Inventario
-      </a>
-      <a class="menu__item{% if ruta.namespace == 'transformacion' %} menu__item--activo{% endif %}" href="{% url 'transformacion:orden_lista' %}"{% if ruta.namespace == 'transformacion' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88"/><path d="M14.47 14.48L20 20"/><path d="M8.12 8.12L12 12"/></svg>
-        Transformación
-      </a>
-      {% with en_pedidos=ruta.url_name|slice:":6" %}
-      <a class="menu__item{% if ruta.namespace == 'embultaje' and en_pedidos != 'pedido' %} menu__item--activo{% endif %}" href="{% url 'embultaje:documento_lista' %}"{% if ruta.namespace == 'embultaje' and en_pedidos != 'pedido' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>
-        Embultaje
-      </a>
-      <a class="menu__item{% if ruta.namespace == 'embultaje' and en_pedidos == 'pedido' %} menu__item--activo{% endif %}" href="{% url 'embultaje:pedido_lista' %}"{% if ruta.namespace == 'embultaje' and en_pedidos == 'pedido' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>
-        Pedidos
-      </a>
-      {% endwith %}
-      {% with en_traslados=ruta.url_name|slice:":8" %}
-      <a class="menu__item{% if ruta.namespace == 'despacho' and en_traslados != 'traslado' %} menu__item--activo{% endif %}" href="{% url 'despacho:despacho_lista' %}"{% if ruta.namespace == 'despacho' and en_traslados != 'traslado' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-        Despachos
-      </a>
-      <a class="menu__item{% if en_traslados == 'traslado' %} menu__item--activo{% endif %}" href="{% url 'despacho:traslado_lista' %}"{% if en_traslados == 'traslado' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h13l-3-3"/><path d="M21 17H8l3 3"/></svg>
-        Traslados a PDV
-      </a>
-      {% endwith %}
-      <a class="menu__item{% if ruta.url_name == 'configuracion' %} menu__item--activo{% endif %}" href="{% url 'maestros:configuracion' %}"{% if ruta.url_name == 'configuracion' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
-        Configuración
-      </a>
-      {% endif %}
-      {% if user.es_admin_pdv %}
-      <a class="menu__item{% if ruta.namespace == 'despacho' %} menu__item--activo{% endif %}" href="{% url 'despacho:traslado_lista' %}"{% if ruta.namespace == 'despacho' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h13l-3-3"/><path d="M21 17H8l3 3"/></svg>
-        Traslados recibidos
-      </a>
-      {% endif %}
-      {% if user.ve_algun_punto_venta %}
-      <a class="menu__item{% if ruta.namespace == 'puntoventa' and ruta.url_name|slice:':5' == 'venta' %} menu__item--activo{% endif %}" href="{% url 'puntoventa:venta_lista' %}"{% if ruta.namespace == 'puntoventa' and ruta.url_name|slice:':5' == 'venta' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.6 12.4a1 1 0 0 0 1 .8h9.7a1 1 0 0 0 1-.8L21 8H6"/></svg>
-        Ventas
-      </a>
-      <a class="menu__item{% if ruta.namespace == 'puntoventa' and ruta.url_name == 'existencias' %} menu__item--activo{% endif %}" href="{% url 'puntoventa:existencias' %}"{% if ruta.namespace == 'puntoventa' and ruta.url_name == 'existencias' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
-        Existencia PDV
-      </a>
-      <a class="menu__item{% if ruta.namespace == 'puntoventa' and ruta.url_name == 'historial' %} menu__item--activo{% endif %}" href="{% url 'puntoventa:historial' %}"{% if ruta.namespace == 'puntoventa' and ruta.url_name == 'historial' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-        Historial PDV
-      </a>
-      {% endif %}
-      {% if user.ve_bodega or user.ve_algun_punto_venta %}
-      <a class="menu__item{% if ruta.namespace == 'conteo' %} menu__item--activo{% endif %}" href="{% url 'conteo:conteo_lista' %}"{% if ruta.namespace == 'conteo' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
-        Conteo físico
-      </a>
-      <a class="menu__item{% if ruta.namespace == 'levantamiento' %} menu__item--activo{% endif %}" href="{% url 'levantamiento:levantamiento_lista' %}"{% if ruta.namespace == 'levantamiento' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/></svg>
-        Inventario inicial
-      </a>
-      <a class="menu__item{% if ruta.namespace == 'reportes' %} menu__item--activo{% endif %}" href="{% url 'reportes:indice' %}"{% if ruta.namespace == 'reportes' %} aria-current="page"{% endif %}>
-        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-        Reportes
-      </a>
-      {% endif %}
-    </nav>
-    <div class="lateral__pie">Pid Consulting S.A.S.<br>Neiva, Huila</div>
-  </aside>
-  <div class="velo" data-cerrar-menu></div>
 
-  <div class="principal">
-    <header class="encabezado">
-      <div class="encabezado__izquierda">
-        <button class="boton-menu" type="button" id="boton-menu" aria-label="Abrir menú" aria-controls="menu-lateral" aria-expanded="false">
-          <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>
-        </button>
-        <h1>{% block encabezado %}InvenData{% endblock %}</h1>
-      </div>
-      <details class="usuario-menu">
-        <summary aria-label="Menú de usuario">
-          <span class="avatar" aria-hidden="true">{{ user.nombre_completo|default:user.usuario|slice:":1"|upper }}</span>
-          <span class="usuario-menu__nombre">{{ user.nombre_completo }}<span class="usuario-menu__perfil">{{ user.perfil }}</span></span>
-        </summary>
-        <div class="usuario-menu__panel">
-          <form method="post" action="{% url 'logout' %}">
-            {% csrf_token %}
-            <button type="submit">Cerrar sesión</button>
-          </form>
+      <nav class="menu" id="menu-principal" aria-label="Principal">
+        <div class="menu__cabeza">
+          <strong>Menú</strong>
+          <button class="boton-icono" type="button" data-cerrar-menu aria-label="Cerrar menú">{% include "componentes/icono.html" with nombre="cerrar" %}</button>
         </div>
-      </details>
-    </header>
-
-    <main class="contenido" id="contenido">
-      {% if messages %}
-      <div class="mensajes" role="status" aria-live="polite">
-        {% for mensaje in messages %}
-        <div class="alerta alerta-{{ mensaje.level_tag }}"{% if mensaje.level_tag == 'error' %} role="alert"{% endif %}>
-          <span class="alerta__texto">{{ mensaje }}</span>
-          <button class="alerta__cerrar" type="button" aria-label="Cerrar aviso">&times;</button>
+        <a class="menu__item{% if nav.inicio.activo %} menu__item--activo{% endif %}" href="{{ nav.inicio.url }}"{% if nav.inicio.activo %} aria-current="page"{% endif %}><span class="menu__icono">{% include "componentes/icono.html" with nombre="inicio" %}</span><span class="menu__nombre">Inicio</span></a>
+        {% for grupo in nav.grupos %}
+        <div class="menu__grupo{% if grupo.activo %} menu__grupo--actual{% endif %}">
+          <button class="menu__disparador" type="button" aria-expanded="false" data-grupo>{{ grupo.nombre }}{% include "componentes/icono.html" with nombre="abajo" clase="icono--giro" %}</button>
+          <div class="menu__panel">
+            {% for item in grupo.items %}
+            <a class="menu__item{% if item.activo %} menu__item--activo{% endif %}" href="{{ item.url }}"{% if item.activo %} aria-current="page"{% endif %}>
+              <span class="menu__icono">{% include "componentes/icono.html" with nombre=item.icono %}</span>
+              <span class="menu__texto"><span class="menu__nombre">{{ item.nombre }}</span><span class="menu__desc">{{ item.descripcion }}</span></span>
+            </a>
+            {% endfor %}
+          </div>
         </div>
         {% endfor %}
+        {% if nav.reportes %}
+        <a class="menu__item{% if nav.reportes.activo %} menu__item--activo{% endif %}" href="{{ nav.reportes.url }}"{% if nav.reportes.activo %} aria-current="page"{% endif %}><span class="menu__icono">{% include "componentes/icono.html" with nombre="reportes" %}</span><span class="menu__nombre">Reportes</span></a>
+        {% endif %}
+        <div class="menu__pie">
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">{% include "componentes/icono.html" with nombre="salir" %}Cerrar sesión</button>
+          </form>
+        </div>
+      </nav>
+
+      <div class="barra-sup__acciones">
+        <button class="buscador-boton" type="button" data-abrir-buscador aria-label="Buscar módulo">
+          {% include "componentes/icono.html" with nombre="buscar" %}
+          <span>Ir a un módulo</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+        {% if nav.acciones %}
+        <button class="boton boton--registrar" type="button" data-abrir-hoja="hoja-registrar">{% include "componentes/icono.html" with nombre="sumar" %}Registrar</button>
+        {% endif %}
+        <details class="usuario-menu">
+          <summary aria-label="Menú de usuario">
+            <span class="avatar" aria-hidden="true">{{ nav.iniciales }}</span>
+            <span class="usuario-menu__nombre">{{ user.nombre_completo }}<span class="usuario-menu__perfil">{{ user.perfil }}</span></span>
+          </summary>
+          <div class="usuario-menu__panel">
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button type="submit">{% include "componentes/icono.html" with nombre="salir" %}Cerrar sesión</button>
+            </form>
+          </div>
+        </details>
       </div>
+    </div>
+  </header>
+  <div class="velo" data-cerrar-menu></div>
+
+  <main class="contenido" id="contenido">
+    {% if messages %}
+    <div class="mensajes" role="status" aria-live="polite">
+      {% for mensaje in messages %}
+      <div class="alerta alerta-{{ mensaje.level_tag }}"{% if mensaje.level_tag == 'error' %} role="alert"{% endif %}>
+        <span class="alerta__texto">{{ mensaje }}</span>
+        <button class="alerta__cerrar" type="button" aria-label="Cerrar aviso">&times;</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% block cabecera %}
+    <div class="pagina-cabeza">
+      <h1 class="pagina-titulo">{% block encabezado %}InvenData{% endblock %}</h1>
+    </div>
+    {% endblock %}
+    {% block contenido %}{% endblock %}
+  </main>
+
+  <nav class="barra-inf" aria-label="Accesos rápidos">
+    <a class="barra-inf__item{% if nav.inicio.activo %} barra-inf__item--actual{% endif %}" href="{{ nav.inicio.url }}">{% include "componentes/icono.html" with nombre="inicio" %}Inicio</a>
+    {% with acceso=nav.barra.0 %}{% if acceso %}
+    <a class="barra-inf__item{% if acceso.activo %} barra-inf__item--actual{% endif %}" href="{{ acceso.url }}">{% include "componentes/icono.html" with nombre=acceso.icono %}{{ acceso.nombre }}</a>
+    {% else %}<span></span>{% endif %}{% endwith %}
+    <div class="barra-inf__centro">
+      {% if nav.acciones %}
+      <button class="barra-inf__registrar" type="button" data-abrir-hoja="hoja-registrar" aria-label="Registrar">{% include "componentes/icono.html" with nombre="sumar" %}</button>
+      {% else %}
+      <button class="barra-inf__item" type="button" data-abrir-buscador>{% include "componentes/icono.html" with nombre="buscar" %}Buscar</button>
       {% endif %}
-      {% block contenido %}{% endblock %}
-    </main>
+    </div>
+    {% with acceso=nav.barra.1 %}{% if acceso %}
+    <a class="barra-inf__item{% if acceso.activo %} barra-inf__item--actual{% endif %}" href="{{ acceso.url }}">{% include "componentes/icono.html" with nombre=acceso.icono %}{{ acceso.nombre }}</a>
+    {% else %}<span></span>{% endif %}{% endwith %}
+    <button class="barra-inf__item" type="button" data-abrir-menu aria-controls="menu-principal" aria-expanded="false">{% include "componentes/icono.html" with nombre="mas" %}Más</button>
+  </nav>
+
+  {% if nav.acciones %}
+  <div class="hoja" id="hoja-registrar" role="dialog" aria-modal="true" aria-labelledby="hoja-registrar-titulo" hidden>
+    <button class="hoja__velo" type="button" data-cerrar-hoja aria-label="Cerrar"></button>
+    <div class="hoja__panel">
+      <span class="hoja__asa" aria-hidden="true"></span>
+      <div class="hoja__cabeza">
+        <h2 id="hoja-registrar-titulo">¿Qué va a registrar?</h2>
+        <button class="boton-icono" type="button" data-cerrar-hoja aria-label="Cerrar">{% include "componentes/icono.html" with nombre="cerrar" %}</button>
+      </div>
+      <div class="acciones-rejilla">
+        {% for accion in nav.acciones %}
+        <a class="accion" href="{{ accion.url }}">
+          <span class="menu__icono">{% include "componentes/icono.html" with nombre=accion.icono %}</span>
+          <span><span class="accion__nombre">{{ accion.nombre }}</span><span class="accion__desc">{{ accion.descripcion }}</span></span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="buscador" id="buscador" role="dialog" aria-modal="true" aria-label="Ir a un módulo" hidden>
+    <button class="hoja__velo" type="button" data-cerrar-buscador aria-label="Cerrar"></button>
+    <div class="buscador__panel">
+      <label class="buscador__campo">
+        {% include "componentes/icono.html" with nombre="buscar" %}
+        <span class="solo-lectores">Escriba el módulo o la acción</span>
+        <input type="search" placeholder="Recepción, ventas, traslado…" autocomplete="off" data-buscador-campo>
+        <kbd>Esc</kbd>
+      </label>
+      <ul class="buscador__lista" data-buscador-lista>
+        {% for item in nav.buscables %}
+        <li><a href="{{ item.url }}" data-texto="{{ item.nombre|lower }} {{ item.descripcion|lower }}"><span class="menu__icono">{% include "componentes/icono.html" with nombre=item.icono %}</span><span class="menu__texto"><span class="menu__nombre">{{ item.nombre }}</span>{% if item.descripcion %}<span class="menu__desc">{{ item.descripcion }}</span>{% endif %}</span></a></li>
+        {% endfor %}
+      </ul>
+      <p class="buscador__vacio" data-buscador-vacio hidden>No hay coincidencias.</p>
+      <div class="buscador__pie"><span><kbd>↑</kbd> <kbd>↓</kbd> moverse</span><span><kbd>Enter</kbd> abrir</span></div>
+    </div>
   </div>
 </div>
-{% endwith %}
 {% endblock %}
-<script>
-  (function () {
-    var app = document.getElementById("app");
-    var boton = document.getElementById("boton-menu");
-    function abrir(si) {
-      if (!app) { return; }
-      app.classList.toggle("menu-abierto", si);
-      document.body.classList.toggle("menu-abierto", si);
-      boton.setAttribute("aria-expanded", si ? "true" : "false");
-    }
-    if (boton) {
-      boton.addEventListener("click", function () { abrir(true); });
-      document.querySelectorAll("[data-cerrar-menu]").forEach(function (el) {
-        el.addEventListener("click", function () { abrir(false); });
-      });
-      document.addEventListener("keydown", function (e) { if (e.key === "Escape") { abrir(false); } });
-      window.matchMedia("(min-width: 1024px)").addEventListener("change", function () { abrir(false); });
-    }
-
-    document.querySelectorAll(".alerta").forEach(function (aviso) {
-      function quitar() {
-        aviso.classList.add("alerta--saliendo");
-        setTimeout(function () { aviso.remove(); }, 300);
-      }
-      var cerrar = aviso.querySelector(".alerta__cerrar");
-      if (cerrar) { cerrar.addEventListener("click", quitar); }
-      if (aviso.classList.contains("alerta-success")) { setTimeout(quitar, 6000); }
-    });
-
-    var menuUsuario = document.querySelector(".usuario-menu");
-    if (menuUsuario) {
-      document.addEventListener("click", function (e) {
-        if (!menuUsuario.contains(e.target)) { menuUsuario.removeAttribute("open"); }
-      });
-    }
-  })();
-</script>
 </body>
 </html>
