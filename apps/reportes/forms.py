@@ -9,9 +9,15 @@ from django import forms
 
 from apps.core.forms import EstiloMixin
 from apps.inventario.consultas import DIAS_POR_VENCER
-from apps.inventario.models import EstadoLote, MotivoAjuste
+from apps.inventario.models import EstadoLote, Lote, MotivoAjuste
 from apps.maestros.models import Producto, TipoUbicacion, Ubicacion
-from apps.reportes.consultas import AGRUPACIONES, AMBITOS, CANALES, periodo_por_defecto
+from apps.reportes.consultas import (
+    AGRUPACIONES,
+    AMBITOS,
+    CANALES,
+    opciones_de_alcance,
+    periodo_por_defecto,
+)
 
 FECHA = forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")
 
@@ -130,3 +136,69 @@ class CorreccionesForm(PeriodoMixin, FiltrosForm):
         # Quien ve un solo ámbito no elige ámbito: el reporte ya está limitado a él.
         if not (ver_bodega and ver_puntos):
             del self.fields["ambito"]
+
+
+def _lote_por_codigo(codigo):
+    """El lote con ese código, sin importar mayúsculas; error si no existe."""
+    codigo = (codigo or "").strip()
+    if not codigo:
+        return None
+    lote = Lote.objects.filter(codigo__iexact=codigo).first()
+    if lote is None:
+        raise forms.ValidationError(f"No existe un lote con el código {codigo}.")
+    return lote
+
+
+class TrazabilidadForm(EstiloMixin, forms.Form):
+    """Busca el lote a trazar por su código (RF-54)."""
+
+    lote = forms.CharField(
+        label="Código del lote",
+        max_length=30,
+        widget=forms.TextInput(attrs={"placeholder": "Ej. L-000012", "autofocus": True}),
+    )
+
+    def __init__(self, datos=None, **kwargs):
+        super().__init__(datos if datos and "lote" in datos else None, **kwargs)
+
+    def clean_lote(self):
+        lote = _lote_por_codigo(self.cleaned_data["lote"])
+        if lote is None:
+            raise forms.ValidationError("Escriba el código del lote.")
+        return lote
+
+
+class MermasForm(PeriodoMixin, FiltrosForm):
+    producto = forms.ModelChoiceField(
+        label="Producto", queryset=Producto.objects.none(), required=False, empty_label="Todos"
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["producto"].queryset = _productos()
+
+
+class InformeForm(PeriodoMixin, FiltrosForm):
+    """Informe general: periodo, alcance y, si se quiere, producto y lote (RF-63 a RF-65)."""
+
+    alcance = forms.ChoiceField(label="Alcance", required=False)
+    producto = forms.ModelChoiceField(
+        label="Producto", queryset=Producto.objects.none(), required=False, empty_label="Todos"
+    )
+    lote = forms.CharField(label="Lote", max_length=30, required=False)
+
+    def __init__(self, *args, usuario, **kwargs):
+        super().__init__(*args, **kwargs)
+        opciones = opciones_de_alcance(usuario)
+        self.fields["alcance"].choices = opciones
+        self.fields["alcance"].initial = opciones[0][0] if opciones else ""
+        self.fields["producto"].queryset = _productos()
+        if not usuario.ve_bodega:  # el punto de venta no maneja lote (SN-09)
+            del self.fields["lote"]
+
+    def clean_lote(self):
+        return _lote_por_codigo(self.cleaned_data.get("lote"))
+
+
+class IndicadoresForm(PeriodoMixin, FiltrosForm):
+    """Solo el periodo: los indicadores ya se limitan a lo que la persona puede ver."""
