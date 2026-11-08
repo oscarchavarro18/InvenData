@@ -10,9 +10,11 @@ from dataclasses import dataclass, field
 
 from django.urls import reverse
 
+from apps.maestros.catalogos import CATALOGOS
+
 # Cambia en cada entrega de la interfaz: obliga al navegador a pedir el CSS y el JS nuevos
 # en lugar de usar los que guardó en caché. En producción, WhiteNoise ya pone un hash.
-VERSION_ESTATICOS = "2026.11.5"
+VERSION_ESTATICOS = "2026.11.6"
 
 
 @dataclass
@@ -155,26 +157,68 @@ def _grupos(usuario, espacio, vista):
                 "Levantamiento por ubicación",
             ),
         ]
-    control.items.append(
+    if not usuario.es_gerente:
+        # El Gerente administra los productos desde Administración; los demás los consultan.
+        control.items.append(
+            Item(
+                "Productos",
+                reverse("maestros:producto_lista"),
+                "productos",
+                en("maestros") and vista.startswith("producto"),
+                "Catálogo de productos",
+            )
+        )
+    administracion = Grupo("Administración")
+    if usuario.es_gerente:
+        administracion.items = _administracion(en, vista)
+    return [g for g in (bodega, salidas, puntos, control, administracion) if g.items]
+
+
+def _administracion(en, vista):
+    """Los maestros, los usuarios y la auditoría: control total, solo del Gerente (RF-02)."""
+    items = [
+        Item(
+            "Resumen",
+            reverse("maestros:administracion"),
+            "configuracion",
+            en("maestros") and vista == "administracion",
+            "Todos los maestros de un vistazo",
+        ),
+        Item(
+            "Usuarios",
+            reverse("accounts:usuario_lista"),
+            "usuarios",
+            en("accounts"),
+            "Accesos, perfiles y contraseñas",
+        ),
         Item(
             "Productos",
             reverse("maestros:producto_lista"),
             "productos",
             en("maestros") and vista.startswith("producto"),
-            "Catálogo de productos",
-        )
-    )
-    if usuario.ve_bodega:
-        control.items.append(
+            "Catálogo, edición y estado",
+        ),
+    ]
+    for catalogo in CATALOGOS.values():
+        items.append(
             Item(
-                "Configuración",
-                reverse("maestros:configuracion"),
-                "configuracion",
-                en("maestros") and (vista == "configuracion" or vista.startswith("embalaje")),
-                "Zonas y tipos de embalaje",
+                catalogo.plural,
+                reverse(catalogo.ruta("lista")),
+                catalogo.icono,
+                en("maestros") and vista.startswith(f"{catalogo.clave}_"),
+                catalogo.descripcion.split(".")[0],
             )
         )
-    return [g for g in (bodega, salidas, puntos, control) if g.items]
+    items.append(
+        Item(
+            "Auditoría",
+            reverse("auditoria:auditoria_lista"),
+            "auditoria",
+            en("auditoria"),
+            "Quién hizo qué y cuándo",
+        )
+    )
+    return items
 
 
 def _acciones(usuario):

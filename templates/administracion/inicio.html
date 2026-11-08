@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titulo %}Administración · InvenData{% endblock %}
+{% block encabezado %}Administración{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Control total del sistema, solo para la gerencia: usuarios, catálogos, parámetros y la auditoría de todo lo que pasa. Nada se borra: lo que ya se usó se desactiva.</p>
+</div>
+
+<section class="admin-rejilla" aria-label="Maestros">
+  {% for t in tarjetas %}
+  <a class="admin-tarjeta" href="{{ t.url }}">
+    <span class="menu__icono">{% include "componentes/icono.html" with nombre=t.icono %}</span>
+    <span class="admin-tarjeta__texto">
+      <span class="admin-tarjeta__titulo">{{ t.titulo }}</span>
+      <span class="admin-tarjeta__desc">{{ t.descripcion }}</span>
+    </span>
+    <span class="admin-tarjeta__cifra">
+      <span class="admin-tarjeta__total">{{ t.total }}</span>
+      {% if t.activos is not None %}<span class="admin-tarjeta__activos">{{ t.activos }} activos</span>{% endif %}
+    </span>
+  </a>
+  {% endfor %}
+</section>
+
+<div class="dos-columnas">
+  <section class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2>Actividad reciente</h2>
+      <a class="boton boton--claro boton--chico" href="{% url 'auditoria:auditoria_lista' %}">Ver la auditoría</a>
+    </div>
+    <ul class="recientes">
+      {% for r in recientes %}
+      <li>
+        <span>
+          <a class="tabla__principal" href="{% url 'auditoria:auditoria_detalle' r.pk %}">{{ r.modulo }} #{{ r.registro_id }}</a>
+          <span class="tabla__secundario">{{ r.usuario.nombre_completo }} · {{ r.fecha_hora|date:"d/m/Y H:i" }}</span>
+        </span>
+        {% include "administracion/_accion.html" with accion=r.accion %}
+      </li>
+      {% empty %}
+      <li class="vacio">Todavía no hay actividad registrada.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="tarjeta">
+    <div class="tarjeta__cabeza">
+      <h2>Usuarios activos por perfil</h2>
+      <a class="boton boton--claro boton--chico" href="{% url 'accounts:usuario_lista' %}">Ver usuarios</a>
+    </div>
+    <ul class="recientes">
+      {% for p in por_perfil %}
+      <li><span class="tabla__principal">{{ p.perfil__nombre }}</span><span class="contador">{{ p.n }}</span></li>
+      {% empty %}
+      <li class="vacio">No hay usuarios activos.</li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+
+<p class="campo__ayuda admin-pie">¿Necesita algo que estas pantallas no cubren? El <a href="/admin/">panel técnico de Django</a> está disponible solo para la gerencia, como respaldo.</p>
+{% endblock %}

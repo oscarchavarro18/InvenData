@@ -36,18 +36,19 @@ def test_el_tablero_no_le_muestra_nada_de_bodega(client, admin_pdv, por_vencer, 
     assert "módulo de punto de venta" in contenido
 
 
-def test_el_administrador_de_pdv_recibe_403_en_configuracion(client, admin_pdv):
-    """Configuración lista las zonas y los embalajes de la bodega."""
+def test_el_administrador_de_pdv_recibe_403_en_la_administracion(client, admin_pdv):
+    """Zonas, embalajes y demás maestros son de la Administración del Gerente."""
     client.force_login(admin_pdv)
-    assert client.get(reverse("maestros:configuracion")).status_code == 403
+    assert client.get(reverse("maestros:administracion")).status_code == 403
+    assert client.get(reverse("maestros:ubicacion_lista")).status_code == 403
 
 
-def test_el_menu_no_le_muestra_recepcion_inventario_ni_configuracion(client, admin_pdv):
+def test_el_menu_no_le_muestra_recepcion_inventario_ni_administracion(client, admin_pdv):
     client.force_login(admin_pdv)
     contenido = client.get(reverse("inicio")).content.decode()
     assert reverse("inventario:existencias") not in contenido
     assert reverse("recepcion:documento_lista") not in contenido
-    assert reverse("maestros:configuracion") not in contenido
+    assert reverse("maestros:administracion") not in contenido
     assert reverse("maestros:producto_lista") in contenido  # el catálogo sí, lo usará en M7
 
 
@@ -63,8 +64,9 @@ def test_consulta_si_ve_la_bodega(client, consulta, por_vencer):
     assert reverse("inventario:existencias") in tablero.content.decode()
     assert reverse("recepcion:documento_lista") in tablero.content.decode()
     assert client.get(reverse("inventario:existencias")).status_code == 200
-    assert client.get(reverse("maestros:configuracion")).status_code == 200
-    assert reverse("maestros:configuracion") in tablero.content.decode()
+    # Lee todo el inventario, pero no administra nada (RN-07).
+    assert client.get(reverse("maestros:administracion")).status_code == 403
+    assert reverse("maestros:administracion") not in tablero.content.decode()
 
 
 def test_un_lote_por_vencer_del_tablero_enlaza_a_su_historial(client, jefe_bodega, por_vencer):

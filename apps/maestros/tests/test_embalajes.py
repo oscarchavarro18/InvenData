@@ -158,13 +158,11 @@ def test_sin_sesion_se_pide_iniciar_sesion(client, canastilla):
     assert "/login/" in respuesta["Location"]
 
 
-def test_solo_el_gerente_ve_los_botones_de_administrar(client, gerente, jefe_bodega, canastilla):
-    url = reverse("maestros:configuracion")
+def test_solo_el_gerente_administra_los_embalajes(client, gerente, jefe_bodega, canastilla):
+    url = reverse("maestros:embalaje_lista")
     client.force_login(gerente)
     contenido = client.get(url).content.decode()
-    assert "Nuevo tipo" in contenido
+    assert "Nuevo tipo de embalaje" in contenido
     assert "Desactivar" in contenido
     client.force_login(jefe_bodega)
-    contenido = client.get(url).content.decode()
-    assert "Nuevo tipo" not in contenido
-    assert "Desactivar" not in contenido
+    assert client.get(url).status_code == 403

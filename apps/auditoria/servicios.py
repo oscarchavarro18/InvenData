@@ -7,14 +7,18 @@ from django.forms.models import model_to_dict
 
 from .models import AccionAuditoria, Auditoria, Evidencia
 
+# Nunca van a la auditoría: el hash de la contraseña y el último ingreso (RNF-04).
+CAMPOS_SENSIBLES = ("password", "last_login")
+
 
 def instantanea(instancia):
     """Estado editable de un registro como diccionario listo para guardar en JSON.
 
     Las claves foráneas quedan como id; decimales y fechas, como texto. No incluye el id
-    (va aparte, en registro_id) ni las fechas automáticas. Para modelos sin ManyToMany.
+    (va aparte, en registro_id), las fechas automáticas ni los campos sensibles. Para
+    modelos sin ManyToMany.
     """
-    datos = model_to_dict(instancia, exclude=[instancia._meta.pk.name])
+    datos = model_to_dict(instancia, exclude=[instancia._meta.pk.name, *CAMPOS_SENSIBLES])
     return json.loads(json.dumps(datos, cls=DjangoJSONEncoder))
 
 

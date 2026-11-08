@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titulo %}Usuarios · InvenData{% endblock %}
+{% block encabezado %}Usuarios{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'maestros:administracion' %}">← Administración</a>
+<div class="barra">
+  <p class="barra__texto">Quién entra al sistema y con qué perfil. Un usuario inactivo no puede ingresar (RF-01); siempre queda al menos un Gerente activo.</p>
+  <div class="barra__acciones"><a class="boton" href="{% url 'accounts:usuario_crear' %}">{% include "componentes/icono.html" with nombre="sumar" %}Nuevo usuario</a></div>
+</div>
+<div class="tarjeta">
+  <form method="get" class="filtros" role="search">
+    <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Usuario o nombre" aria-label="Buscar usuario">
+    <select class="form-select" name="perfil" aria-label="Perfil">
+      <option value="">Todos los perfiles</option>
+      {% for p in perfiles %}<option value="{{ p.codigo }}"{% if perfil == p.codigo %} selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+    </select>
+    <select class="form-select" name="estado" aria-label="Estado">
+      <option value="">Todos los estados</option>
+      <option value="activos"{% if estado == "activos" %} selected{% endif %}>Activos</option>
+      <option value="inactivos"{% if estado == "inactivos" %} selected{% endif %}>Inactivos</option>
+    </select>
+    <button class="boton boton--claro" type="submit">Buscar</button>
+    {% if q or perfil or estado %}<a class="boton boton--claro" href="?">Limpiar</a>{% endif %}
+  </form>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil</th><th>Punto de venta</th><th>Último ingreso</th><th>Estado</th><th class="tabla__acciones">Acciones</th></tr></thead>
+      <tbody>
+        {% for u in pagina %}
+        <tr>
+          <td class="tabla__principal texto-codigo">{{ u.usuario }}{% if u.pk == user.pk %} <span class="pill pill--azul">Usted</span>{% endif %}</td>
+          <td data-label="Nombre">{{ u.nombre_completo }}</td>
+          <td data-label="Perfil">{{ u.perfil.nombre }}</td>
+          <td data-label="Punto de venta">{{ u.ubicacion.nombre|default:"-" }}</td>
+          <td data-label="Último ingreso" class="texto-codigo">{{ u.last_login|date:"d/m/Y H:i"|default:"Nunca" }}</td>
+          <td data-label="Estado">{% include "administracion/_estado.html" with activo=u.activo %}</td>
+          <td class="tabla__acciones">
+            <a class="boton boton--claro boton--chico" href="{% url 'accounts:usuario_editar' u.pk %}">Editar</a>
+            <a class="boton boton--claro boton--chico" href="{% url 'accounts:usuario_clave' u.pk %}">Contraseña</a>
+            {% if u.pk != user.pk %}
+            <form class="en-linea" method="post" action="{% url 'accounts:usuario_estado' u.pk %}" data-confirmar-accion="{% if u.activo %}¿Desactivar a {{ u.nombre_completo }}? No podrá ingresar al sistema; su historia se conserva.{% else %}¿Activar a {{ u.nombre_completo }}? Podrá volver a ingresar.{% endif %}"{% if u.activo %} data-peligro{% endif %}>
+              {% csrf_token %}
+              <button class="boton {% if u.activo %}boton--peligro{% else %}boton--claro{% endif %} boton--chico" type="submit">{% if u.activo %}Desactivar{% else %}Activar{% endif %}</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="tabla__vacia">Ningún usuario coincide con la búsqueda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titulo %}{{ catalogo.plural }} · InvenData{% endblock %}
+{% block encabezado %}{{ catalogo.plural }}{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'maestros:administracion' %}">← Administración</a>
+<div class="barra">
+  <p class="barra__texto">{{ catalogo.descripcion }}</p>
+  {% if crear %}<div class="barra__acciones"><a class="boton" href="{{ crear }}">{% include "componentes/icono.html" with nombre="sumar" %}{{ catalogo.nuevo }}</a></div>{% endif %}
+</div>
+<div class="tarjeta">
+  <form method="get" class="filtros" role="search">
+    <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Buscar" aria-label="Buscar en {{ catalogo.plural|lower }}">
+    {% if catalogo.campo_estado %}
+    <select class="form-select" name="estado" aria-label="Estado">
+      <option value="">Todos los estados</option>
+      <option value="activos"{% if estado == "activos" %} selected{% endif %}>Activos</option>
+      <option value="inactivos"{% if estado == "inactivos" %} selected{% endif %}>Inactivos</option>
+    </select>
+    {% endif %}
+    <button class="boton boton--claro" type="submit">Buscar</button>
+    {% if q or estado %}<a class="boton boton--claro" href="?">Limpiar</a>{% endif %}
+  </form>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr>
+          {% for columna in catalogo.columnas %}<th{% if columna.estilo == "num" %} class="num"{% endif %}>{{ columna.titulo }}</th>{% endfor %}
+          {% if catalogo.campo_estado %}<th>Estado</th>{% endif %}
+          <th class="tabla__acciones">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in filas %}
+        <tr>
+          {% for valor, estilo, titulo in fila.celdas %}
+          <td{% if forloop.first %} class="tabla__principal{% if estilo == 'codigo' %} texto-codigo{% endif %}"{% else %} data-label="{{ titulo }}"{% if estilo == "num" %} class="num"{% elif estilo == "codigo" %} class="texto-codigo"{% endif %}{% endif %}>{{ valor }}</td>
+          {% endfor %}
+          {% if catalogo.campo_estado %}<td data-label="Estado">{% include "administracion/_estado.html" with activo=fila.activo %}</td>{% endif %}
+          <td class="tabla__acciones">
+            <a class="boton boton--claro boton--chico" href="{{ fila.editar }}">Editar</a>
+            {% if fila.estado %}
+            <form class="en-linea" method="post" action="{{ fila.estado }}" data-confirmar-accion="{% if fila.activo %}¿Desactivar {{ catalogo.articulo }} {{ catalogo.singular }} «{{ fila.objeto }}»? No se ofrecerá en operaciones nuevas; su historia se conserva.{% else %}¿Activar {{ catalogo.articulo }} {{ catalogo.singular }} «{{ fila.objeto }}»?{% endif %}"{% if fila.activo %} data-peligro{% endif %}>
+              {% csrf_token %}
+              <button class="boton {% if fila.activo %}boton--peligro{% else %}boton--claro{% endif %} boton--chico" type="submit">{% if fila.activo %}Desactivar{% else %}Activar{% endif %}</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{{ catalogo.columnas|length|add:2 }}" class="tabla__vacia">{% if q or estado %}Nada coincide con la búsqueda.{% else %}Todavía no hay registros.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}

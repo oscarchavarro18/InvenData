@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Auditoría · InvenData{% endblock %}
+{% block encabezado %}Auditoría{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'maestros:administracion' %}">← Administración</a>
+<div class="barra">
+  <p class="barra__texto">Quién hizo qué y cuándo en toda la operación, con el valor anterior y el nuevo de cada cambio (RF-10). Es de solo lectura: nadie la edita ni la borra.</p>
+  <div class="barra__acciones">
+    <a class="boton boton--claro" href="?{% if exportar %}{{ exportar }}&amp;{% endif %}formato=csv">Descargar CSV</a>
+    <a class="boton" href="?{% if exportar %}{{ exportar }}&amp;{% endif %}formato=pdf">Descargar PDF</a>
+  </div>
+</div>
+<div class="tarjeta">
+  <form method="get" class="filtros filtros--campos">
+    {% for campo in form %}
+    <div class="campo">
+      <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      {{ campo }}
+    </div>
+    {% endfor %}
+    <button class="boton boton--claro" type="submit">Consultar</button>
+  </form>
+  {% if form.non_field_errors %}
+  <div class="tarjeta__cuerpo"><div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }} Se muestran los valores por defecto.</span></div></div>
+  {% endif %}
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada">
+      <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Módulo</th><th>Acción</th><th>Cambios</th><th class="tabla__acciones">Detalle</th></tr></thead>
+      <tbody>
+        {% for r in pagina %}
+        <tr>
+          <td class="tabla__principal texto-codigo">{{ r.fecha_hora|date:"d/m/Y H:i:s" }}</td>
+          <td data-label="Usuario">{{ r.usuario.nombre_completo }}</td>
+          <td data-label="Módulo">{{ r.modulo }} <span class="tabla__secundario texto-codigo">#{{ r.registro_id }}</span></td>
+          <td data-label="Acción">{% include "administracion/_accion.html" with accion=r.accion %}</td>
+          <td data-label="Cambios" class="auditoria__resumen">{{ r.resumen|truncatechars:110 }}</td>
+          <td class="tabla__acciones"><a class="boton boton--claro boton--chico" href="{% url 'auditoria:auditoria_detalle' r.pk %}">Ver</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="tabla__vacia">No hay registros con esos filtros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}
