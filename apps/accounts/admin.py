@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
+from apps.auditoria.mixins import AuditoriaAdminMixin
+
 from .models import Perfil, Usuario
 
 
@@ -18,7 +20,9 @@ class UsuarioChangeForm(UserChangeForm):
 
 
 @admin.register(Usuario)
-class UsuarioAdmin(UserAdmin):
+class UsuarioAdmin(AuditoriaAdminMixin, UserAdmin):
+    """Respaldo técnico del Gerente. Lo que cambie aquí también queda en auditoría (RF-10)."""
+
     form = UsuarioChangeForm
     add_form = UsuarioCreationForm
     list_display = ("usuario", "nombre_completo", "perfil", "ubicacion", "activo")

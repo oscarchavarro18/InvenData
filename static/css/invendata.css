@@ -420,6 +420,14 @@ svg {
   transform: translateY(-6px);
   transition: opacity 0.2s, transform 0.25s var(--suave), visibility 0.2s;
 }
+.menu__grupo--derecha > .menu__panel {
+  left: auto;
+  right: 0;
+}
+.menu__panel {
+  max-height: calc(100vh - var(--alto-barra) - 24px);
+  overflow-y: auto;
+}
 .menu__grupo--abierto > .menu__panel,
 html:not(.js) .menu__grupo:hover > .menu__panel,
 html:not(.js) .menu__grupo:focus-within > .menu__panel {
@@ -2242,6 +2250,128 @@ textarea.form-control {
   color: var(--apagado);
 }
 
+/* =====================================================================
+   Administración
+   ===================================================================== */
+
+.admin-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.admin-tarjeta {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  color: var(--tinta);
+  transition: border-color 0.2s, transform 0.25s var(--suave), box-shadow 0.25s;
+}
+.admin-tarjeta:hover {
+  color: var(--tinta);
+  text-decoration: none;
+  border-color: var(--azul);
+  transform: var(--levantar, translateY(-3px));
+  box-shadow: 0 14px 30px rgba(21, 101, 192, 0.12);
+}
+.admin-tarjeta:hover .menu__icono {
+  background: var(--azul);
+  color: #fff;
+}
+.admin-tarjeta__texto {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-tarjeta__titulo {
+  font-weight: 750;
+  font-size: 16px;
+}
+.admin-tarjeta__desc {
+  font-size: 13px;
+  color: var(--apagado);
+}
+.admin-tarjeta__cifra {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
+}
+.admin-tarjeta__total {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--azul-profundo);
+}
+.admin-tarjeta__activos {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--apagado);
+  white-space: nowrap;
+}
+
+.admin-pie {
+  margin-top: 22px;
+}
+.texto-codigo {
+  font-family: var(--mono);
+  font-size: 14px;
+}
+.obligatorio {
+  color: var(--rojo);
+}
+.formulario-ayuda {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: var(--radio-chico);
+  background: var(--azul-fondo);
+  color: var(--azul-profundo);
+  font-size: 14px;
+}
+.campo__ayuda ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.fila--cambio td {
+  background: var(--naranja-fondo);
+}
+.tabla tbody tr.fila--cambio:hover td {
+  background: #fbe6cc;
+}
+.auditoria__resumen {
+  max-width: 460px;
+  color: var(--apagado);
+  font-size: 14px;
+}
+
+.hoja--confirmar .hoja__panel {
+  width: min(460px, 100%);
+}
+.confirmar__titulo {
+  font-size: 22px;
+  font-weight: 800;
+  font-stretch: 78%;
+}
+.confirmar__texto {
+  margin: 8px 0 18px;
+  color: var(--texto);
+}
+.boton--peligro-lleno,
+.boton--peligro-lleno:hover {
+  background: var(--rojo);
+  border-color: var(--rojo);
+  color: #fff;
+  box-shadow: none;
+}
+
 /* ---------- Página de error ---------- */
 
 .error-pagina {
@@ -2450,6 +2580,8 @@ textarea.form-control {
   .menu__panel {
     position: static;
     width: auto;
+    max-height: none;
+    overflow: visible;
     padding: 0;
     border: 0;
     box-shadow: none;

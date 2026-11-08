@@ -20,7 +20,7 @@ def con_gerente(client, gerente):
     return client
 
 
-@pytest.mark.parametrize("nombre", ["producto_lista", "producto_crear", "configuracion"])
+@pytest.mark.parametrize("nombre", ["producto_lista", "producto_crear", "administracion"])
 def test_las_pantallas_exigen_sesion(client, db, nombre):
     respuesta = client.get(reverse(f"maestros:{nombre}"))
     assert respuesta.status_code == 302
@@ -180,16 +180,20 @@ def test_otro_perfil_no_puede_crear_productos(con_sesion, db):
     assert Producto.objects.count() == 0
 
 
-def test_configuracion_muestra_los_catalogos(con_sesion, bodega):
+def test_la_administracion_lista_los_catalogos(con_gerente, bodega):
     TipoEmbalaje.objects.create(nombre="Canastilla", peso_tara=Decimal("2.50"))
     Parametro.objects.create(clave="TOLERANCIA", valor="2", descripcion="Tolerancia de balance")
-    contenido = con_sesion.get(reverse("maestros:configuracion")).content.decode()
-    assert "Cuarto de sostenimiento" in contenido
-    assert "Canastilla" in contenido
-    assert "TOLERANCIA" in contenido
-    assert "/admin/" not in contenido  # el enlace al panel es solo del gerente
+    ubicaciones = con_gerente.get(reverse("maestros:ubicacion_lista")).content.decode()
+    assert "Cuarto de sostenimiento" in ubicaciones
+    assert "Canastilla" in con_gerente.get(reverse("maestros:embalaje_lista")).content.decode()
+    assert "TOLERANCIA" in con_gerente.get(reverse("maestros:parametro_lista")).content.decode()
 
 
-def test_configuracion_ofrece_el_panel_al_gerente(con_gerente):
-    contenido = con_gerente.get(reverse("maestros:configuracion")).content.decode()
-    assert "/admin/" in contenido
+def test_la_administracion_ofrece_el_panel_tecnico_al_gerente(con_gerente):
+    contenido = con_gerente.get(reverse("maestros:administracion")).content.decode()
+    assert 'href="/admin/"' in contenido
+
+
+def test_el_jefe_de_bodega_no_entra_a_la_administracion(con_sesion):
+    assert con_sesion.get(reverse("maestros:administracion")).status_code == 403
+    assert con_sesion.get(reverse("maestros:embalaje_lista")).status_code == 403

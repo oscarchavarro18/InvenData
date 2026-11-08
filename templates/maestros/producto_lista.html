@@ -24,6 +24,7 @@
           <th>Unidad</th>
           <th class="num">Existencia</th>
           <th>Estado</th>
+          {% if user.es_gerente %}<th class="tabla__acciones">Acciones</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -40,9 +41,18 @@
           <td data-label="Estado">
             {% if producto.activo %}<span class="pill pill--verde">Activo</span>{% else %}<span class="pill pill--gris">Inactivo</span>{% endif %}
           </td>
+          {% if user.es_gerente %}
+          <td class="tabla__acciones">
+            <a class="boton boton--claro boton--chico" href="{% url 'maestros:producto_editar' producto.pk %}">Editar</a>
+            <form class="en-linea" method="post" action="{% url 'maestros:producto_estado' producto.pk %}" data-confirmar-accion="{% if producto.activo %}¿Desactivar el producto «{{ producto.nombre }}»? No se ofrecerá en operaciones nuevas.{% else %}¿Activar el producto «{{ producto.nombre }}»?{% endif %}">
+              {% csrf_token %}
+              <button class="boton {% if producto.activo %}boton--peligro{% else %}boton--claro{% endif %} boton--chico" type="submit">{% if producto.activo %}Desactivar{% else %}Activar{% endif %}</button>
+            </form>
+          </td>
+          {% endif %}
         </tr>
         {% empty %}
-        <tr><td colspan="6" class="tabla__vacia">{% if q %}Ningún producto coincide con la búsqueda.{% else %}Todavía no hay productos.{% endif %}</td></tr>
+        <tr><td colspan="{% if user.es_gerente %}7{% else %}6{% endif %}" class="tabla__vacia">{% if q %}Ningún producto coincide con la búsqueda.{% else %}Todavía no hay productos.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

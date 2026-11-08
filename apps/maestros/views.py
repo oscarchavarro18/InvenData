@@ -1,18 +1,38 @@
-"""Pantallas de maestros: productos y consulta de la configuración (M1)."""
+"""Pantallas de maestros: el catálogo de productos y la Administración del Gerente (M1).
+
+El catálogo de productos lo consulta todo perfil. Todo lo demás (usuarios, ubicaciones,
+categorías, clientes, proveedores, embalajes, parámetros y auditoría) vive en Administración
+y es solo del Gerente (RF-02). Las vistas no escriben: llaman a `servicios.py`.
+"""
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Count, Q, Sum
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.auditoria.models import AccionAuditoria
-from apps.auditoria.servicios import instantanea, ip_de, registrar
+from apps.accounts.models import Usuario
+from apps.auditoria.consultas import nombre_de_entidad
+from apps.auditoria.models import Auditoria
+from apps.auditoria.servicios import ip_de
 from apps.core.paginacion import paginar
-from apps.core.permisos import acceso_bodega, solo_gerente
-from apps.maestros.forms import EmbalajeForm, ProductoForm
-from apps.maestros.models import Parametro, Producto, TipoEmbalaje, Ubicacion
+from apps.core.permisos import solo_gerente
+from apps.maestros import servicios
+from apps.maestros.catalogos import CATALOGOS
+from apps.maestros.forms import ProductoForm
+from apps.maestros.models import Producto
+
+
+def _catalogo(clave):
+    try:
+        return CATALOGOS[clave]
+    except KeyError:
+        raise Http404 from None
+
+
+# --- Catálogo de productos (lo consulta todo perfil, lo administra el Gerente) -----------
 
 
 @login_required
@@ -35,92 +55,200 @@ def producto_lista(request):
     )
 
 
+def _formulario_producto(request, producto):
+    form = ProductoForm(request.POST if request.method == "POST" else None, instance=producto)
+    if request.method == "POST" and form.is_valid():
+        if producto is None:
+            producto = servicios.crear(form=form, usuario=request.user, ip=ip_de(request))
+            messages.success(request, f"Producto «{producto.nombre}» creado.")
+        else:
+            servicios.editar(form=form, usuario=request.user, ip=ip_de(request))
+            messages.success(request, f"Producto «{producto.nombre}» actualizado.")
+        return redirect("maestros:producto_lista")
+    contexto = {
+        "form": form,
+        "titulo": "Editar producto" if producto else "Nuevo producto",
+        "volver": reverse("maestros:producto_lista"),
+        "volver_texto": "Volver a productos",
+        "ayuda": "El código interno no se repite. Solo los productos que admiten "
+        "transformación pueden ser origen de una orden (RF-23).",
+    }
+    return render(request, "administracion/form.html", contexto)
+
+
 @solo_gerente  # los catálogos los administra la gerencia (RF-04)
 def producto_crear(request):
-    form = ProductoForm(request.POST if request.method == "POST" else None)
-    if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            producto = form.save()
-            producto.refresh_from_db()  # lo que quedó guardado (código en mayúsculas, decimales)
-            registrar(
-                usuario=request.user,
-                entidad=producto._meta.db_table,
-                registro_id=producto.pk,
-                accion=AccionAuditoria.CREAR,
-                valor_nuevo=instantanea(producto),
-                ip=ip_de(request),
-            )
-        messages.success(request, f"Producto «{producto.nombre}» creado.")
-        return redirect("maestros:producto_lista")
-    return render(request, "maestros/producto_form.html", {"form": form})
-
-
-@acceso_bodega
-def configuracion(request):
-    """Consulta de los catálogos de la operación. La edición se hace desde el panel de gestión.
-
-    Son las zonas y embalajes de la bodega: el administrador de punto de venta no la ve (RN-06).
-    """
-    contexto = {
-        "ubicaciones": Ubicacion.objects.all(),
-        "embalajes": TipoEmbalaje.objects.order_by("nombre"),
-        "parametros": Parametro.objects.order_by("clave"),
-    }
-    return render(request, "maestros/configuracion.html", contexto)
-
-
-def _registrar(request, objeto, accion, anterior=None):
-    """Deja en auditoría lo que quedó guardado de un maestro (RF-10); va en la misma transacción."""
-    objeto.refresh_from_db()
-    registrar(
-        usuario=request.user,
-        entidad=objeto._meta.db_table,
-        registro_id=objeto.pk,
-        accion=accion,
-        valor_anterior=anterior,
-        valor_nuevo=instantanea(objeto),
-        ip=ip_de(request),
-    )
+    return _formulario_producto(request, None)
 
 
 @solo_gerente
-def embalaje_crear(request):
-    form = EmbalajeForm(request.POST if request.method == "POST" else None)
-    if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            embalaje = form.save()
-            _registrar(request, embalaje, AccionAuditoria.CREAR)
-        messages.success(request, f"Tipo de embalaje «{embalaje.nombre}» creado.")
-        return redirect("maestros:configuracion")
-    return render(request, "maestros/embalaje_form.html", {"form": form, "embalaje": None})
-
-
-@solo_gerente
-def embalaje_editar(request, pk):
-    """Cambiar la tara solo afecta las pesadas nuevas: las ya registradas conservan su peso neto."""
-    embalaje = get_object_or_404(TipoEmbalaje, pk=pk)
-    form = EmbalajeForm(request.POST if request.method == "POST" else None, instance=embalaje)
-    if request.method == "POST":
-        anterior = instantanea(embalaje)
-        if form.is_valid():
-            with transaction.atomic():
-                form.save()
-                _registrar(request, embalaje, AccionAuditoria.MODIFICAR, anterior=anterior)
-            messages.success(request, f"Tipo de embalaje «{embalaje.nombre}» actualizado.")
-            return redirect("maestros:configuracion")
-    return render(request, "maestros/embalaje_form.html", {"form": form, "embalaje": embalaje})
+def producto_editar(request, pk):
+    return _formulario_producto(request, get_object_or_404(Producto, pk=pk))
 
 
 @solo_gerente
 @require_POST
-def embalaje_estado(request, pk):
-    """Activa o desactiva un tipo: no se borra, porque las pesadas antiguas lo usan."""
-    embalaje = get_object_or_404(TipoEmbalaje, pk=pk)
-    anterior = instantanea(embalaje)
-    with transaction.atomic():
-        embalaje.activo = not embalaje.activo
-        embalaje.save(update_fields=["activo"])
-        _registrar(request, embalaje, AccionAuditoria.MODIFICAR, anterior=anterior)
-    estado = "activado" if embalaje.activo else "desactivado"
-    messages.success(request, f"Tipo de embalaje «{embalaje.nombre}» {estado}.")
-    return redirect("maestros:configuracion")
+def producto_estado(request, pk):
+    producto = get_object_or_404(Producto, pk=pk)
+    try:
+        activo = servicios.cambiar_estado(
+            objeto=producto, campo="activo", usuario=request.user, ip=ip_de(request)
+        )
+    except servicios.MaestroInvalido as error:
+        messages.error(request, str(error))
+    else:
+        estado = "activado" if activo else "desactivado"
+        messages.success(request, f"Producto «{producto.nombre}» {estado}.")
+    return redirect("maestros:producto_lista")
+
+
+# --- Administración del Gerente --------------------------------------------------------
+
+
+@solo_gerente
+def administracion(request):
+    """Resumen de todos los maestros con sus accesos y la actividad reciente (RF-02, RF-10)."""
+    tarjetas = [
+        {
+            "titulo": "Usuarios",
+            "descripcion": "Quién entra al sistema y con qué perfil.",
+            "icono": "inicio",
+            "url": reverse("accounts:usuario_lista"),
+            "total": Usuario.objects.count(),
+            "activos": Usuario.objects.filter(activo=True).count(),
+        },
+        {
+            "titulo": "Productos",
+            "descripcion": "Catálogo de productos y si admiten transformación.",
+            "icono": "productos",
+            "url": reverse("maestros:producto_lista"),
+            "total": Producto.objects.count(),
+            "activos": Producto.objects.filter(activo=True).count(),
+        },
+    ]
+    for catalogo in CATALOGOS.values():
+        consulta = catalogo.modelo.objects.all()
+        activos = (
+            consulta.filter(**{catalogo.campo_estado: True}).count()
+            if catalogo.campo_estado
+            else None
+        )
+        tarjetas.append(
+            {
+                "titulo": catalogo.plural,
+                "descripcion": catalogo.descripcion,
+                "icono": catalogo.icono,
+                "url": reverse(catalogo.ruta("lista")),
+                "total": consulta.count(),
+                "activos": activos,
+            }
+        )
+    recientes = list(Auditoria.objects.select_related("usuario")[:8])
+    for registro in recientes:
+        registro.modulo = nombre_de_entidad(registro.entidad)
+    contexto = {
+        "tarjetas": tarjetas,
+        "recientes": recientes,
+        "por_perfil": Usuario.objects.filter(activo=True)
+        .values("perfil__nombre")
+        .annotate(n=Count("id"))
+        .order_by("perfil__nombre"),
+    }
+    return render(request, "administracion/inicio.html", contexto)
+
+
+@solo_gerente
+def catalogo_lista(request, clave):
+    catalogo = _catalogo(clave)
+    objetos = catalogo.modelo.objects.all().order_by(*catalogo.orden)
+    q = request.GET.get("q", "").strip()
+    if q:
+        filtro = Q()
+        for campo in catalogo.busqueda:
+            filtro |= Q(**{campo: q})
+        objetos = objetos.filter(filtro)
+    estado = request.GET.get("estado", "")
+    if catalogo.campo_estado and estado in ("activos", "inactivos"):
+        objetos = objetos.filter(**{catalogo.campo_estado: estado == "activos"})
+    pagina, consulta = paginar(request, objetos)
+    filas = [
+        {
+            "objeto": objeto,
+            "celdas": [(c.valor(objeto), c.estilo, c.titulo) for c in catalogo.columnas],
+            "activo": getattr(objeto, catalogo.campo_estado) if catalogo.campo_estado else None,
+            "editar": reverse(catalogo.ruta("editar"), args=[objeto.pk]),
+            "estado": reverse(catalogo.ruta("estado"), args=[objeto.pk])
+            if catalogo.campo_estado
+            else None,
+        }
+        for objeto in pagina
+    ]
+    contexto = {
+        "catalogo": catalogo,
+        "pagina": pagina,
+        "consulta": consulta,
+        "filas": filas,
+        "q": q,
+        "estado": estado,
+        "crear": reverse(catalogo.ruta("crear")) if catalogo.se_crea else None,
+    }
+    return render(request, "administracion/lista.html", contexto)
+
+
+def _formulario(request, catalogo, objeto):
+    form = catalogo.formulario(request.POST if request.method == "POST" else None, instance=objeto)
+    if request.method == "POST" and form.is_valid():
+        nombre = f"{catalogo.articulo} {catalogo.singular}"
+        if objeto is None:
+            objeto = servicios.crear(form=form, usuario=request.user, ip=ip_de(request))
+            messages.success(request, f"Se creó {nombre} «{objeto}».")
+        else:
+            servicios.editar(form=form, usuario=request.user, ip=ip_de(request))
+            messages.success(request, f"Se actualizó {nombre} «{objeto}».")
+        return redirect(catalogo.ruta("lista"))
+    contexto = {
+        "form": form,
+        "catalogo": catalogo,
+        "titulo": f"Editar {catalogo.singular}" if objeto else catalogo.nuevo,
+        "volver": reverse(catalogo.ruta("lista")),
+        "volver_texto": f"Volver a {catalogo.plural.lower()}",
+        "ayuda": catalogo.descripcion,
+        "objeto": objeto,
+    }
+    return render(request, "administracion/form.html", contexto)
+
+
+@solo_gerente
+def catalogo_crear(request, clave):
+    catalogo = _catalogo(clave)
+    if not catalogo.se_crea:
+        raise Http404
+    return _formulario(request, catalogo, None)
+
+
+@solo_gerente
+def catalogo_editar(request, clave, pk):
+    catalogo = _catalogo(clave)
+    return _formulario(request, catalogo, get_object_or_404(catalogo.modelo, pk=pk))
+
+
+@solo_gerente
+@require_POST
+def catalogo_estado(request, clave, pk):
+    """Activa o desactiva: nada se borra, porque hay documentos que lo usan."""
+    catalogo = _catalogo(clave)
+    if not catalogo.campo_estado:
+        raise Http404
+    objeto = get_object_or_404(catalogo.modelo, pk=pk)
+    try:
+        activo = servicios.cambiar_estado(
+            objeto=objeto, campo=catalogo.campo_estado, usuario=request.user, ip=ip_de(request)
+        )
+    except servicios.MaestroInvalido as error:
+        messages.error(request, str(error))
+    else:
+        accion = "activó" if activo else "desactivó"
+        messages.success(
+            request, f"Se {accion} {catalogo.articulo} {catalogo.singular} «{objeto}»."
+        )
+    return redirect(catalogo.ruta("lista"))

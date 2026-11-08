@@ -190,6 +190,46 @@
     }
   });
 
+  /* ---------- Confirmación de acciones delicadas (desactivar, activar…) ---------- */
+
+  var dialogo = document.getElementById("confirmacion");
+  if (dialogo) {
+    var textoDialogo = dialogo.querySelector("[data-confirmacion-texto]");
+    var aceptar = dialogo.querySelector("[data-aceptar-confirmacion]");
+    var pendiente = null;
+    var cerrarDialogo = function () {
+      dialogo.hidden = true;
+      bloquearScroll(false);
+      pendiente = null;
+    };
+    document.addEventListener("submit", function (e) {
+      var form = e.target;
+      if (!form.hasAttribute || !form.hasAttribute("data-confirmar-accion")) { return; }
+      if (form.dataset.confirmado === "si") { return; }
+      e.preventDefault();
+      pendiente = form;
+      textoDialogo.textContent = form.getAttribute("data-confirmar-accion");
+      var peligro = form.hasAttribute("data-peligro");
+      aceptar.classList.toggle("boton--peligro-lleno", peligro);
+      aceptar.textContent = peligro ? "Sí, desactivar" : "Confirmar";
+      dialogo.hidden = false;
+      bloquearScroll(true);
+      aceptar.focus();
+      abiertos.push({ cerrar: cerrarDialogo });
+    });
+    aceptar.addEventListener("click", function () {
+      if (!pendiente) { return; }
+      var form = pendiente;
+      form.dataset.confirmado = "si";
+      abiertos.pop();
+      cerrarDialogo();
+      if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+    });
+    dialogo.querySelectorAll("[data-cerrar-confirmacion]").forEach(function (b) {
+      b.addEventListener("click", function () { abiertos.pop(); cerrarDialogo(); });
+    });
+  }
+
   /* ---------- Menú de usuario ---------- */
 
   var menuUsuario = document.querySelector(".usuario-menu");

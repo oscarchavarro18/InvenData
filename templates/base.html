@@ -33,7 +33,7 @@
         </div>
         <a class="menu__item{% if nav.inicio.activo %} menu__item--activo{% endif %}" href="{{ nav.inicio.url }}"{% if nav.inicio.activo %} aria-current="page"{% endif %}><span class="menu__icono">{% include "componentes/icono.html" with nombre="inicio" %}</span><span class="menu__nombre">Inicio</span></a>
         {% for grupo in nav.grupos %}
-        <div class="menu__grupo{% if grupo.activo %} menu__grupo--actual{% endif %}">
+        <div class="menu__grupo{% if grupo.activo %} menu__grupo--actual{% endif %}{% if forloop.last %} menu__grupo--derecha{% endif %}">
           <button class="menu__disparador" type="button" aria-expanded="false" data-grupo>{{ grupo.nombre }}{% include "componentes/icono.html" with nombre="abajo" clase="icono--giro" %}</button>
           <div class="menu__panel">
             {% for item in grupo.items %}
@@ -139,6 +139,19 @@
     </div>
   </div>
   {% endif %}
+
+  <div class="hoja hoja--confirmar" id="confirmacion" role="alertdialog" aria-modal="true" aria-labelledby="confirmacion-titulo" aria-describedby="confirmacion-texto" hidden>
+    <button class="hoja__velo" type="button" data-cerrar-confirmacion aria-label="Cancelar"></button>
+    <div class="hoja__panel">
+      <span class="hoja__asa" aria-hidden="true"></span>
+      <h2 id="confirmacion-titulo" class="confirmar__titulo">¿Confirma esta acción?</h2>
+      <p id="confirmacion-texto" class="confirmar__texto" data-confirmacion-texto></p>
+      <div class="formulario-pie">
+        <button class="boton boton--claro" type="button" data-cerrar-confirmacion>Cancelar</button>
+        <button class="boton" type="button" data-aceptar-confirmacion>Confirmar</button>
+      </div>
+    </div>
+  </div>
 
   <div class="buscador" id="buscador" role="dialog" aria-modal="true" aria-label="Ir a un módulo" hidden>
     <button class="hoja__velo" type="button" data-cerrar-buscador aria-label="Cerrar"></button>
