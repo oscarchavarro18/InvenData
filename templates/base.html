@@ -26,6 +26,7 @@
         <span class="marca__nombre">InvenData</span>
       </a>
 
+      {% if user.is_authenticated %}
       <nav class="menu" id="menu-principal" aria-label="Principal">
         <div class="menu__cabeza">
           <strong>Menú</strong>
@@ -78,6 +79,7 @@
           </div>
         </details>
       </div>
+      {% endif %}
     </div>
   </header>
   <div class="velo" data-cerrar-menu></div>
@@ -101,10 +103,11 @@
     {% block contenido %}{% endblock %}
   </main>
 
+  {% if user.is_authenticated %}
   <nav class="barra-inf" aria-label="Accesos rápidos">
     <a class="barra-inf__item{% if nav.inicio.activo %} barra-inf__item--actual{% endif %}" href="{{ nav.inicio.url }}">{% include "componentes/icono.html" with nombre="inicio" %}Inicio</a>
     {% with acceso=nav.barra.0 %}{% if acceso %}
-    <a class="barra-inf__item{% if acceso.activo %} barra-inf__item--actual{% endif %}" href="{{ acceso.url }}">{% include "componentes/icono.html" with nombre=acceso.icono %}{{ acceso.nombre }}</a>
+    <a class="barra-inf__item{% if acceso.activo %} barra-inf__item--actual{% endif %}" href="{{ acceso.url }}">{% include "componentes/icono.html" with nombre=acceso.icono %}{{ acceso.corto }}</a>
     {% else %}<span></span>{% endif %}{% endwith %}
     <div class="barra-inf__centro">
       {% if nav.acciones %}
@@ -114,7 +117,7 @@
       {% endif %}
     </div>
     {% with acceso=nav.barra.1 %}{% if acceso %}
-    <a class="barra-inf__item{% if acceso.activo %} barra-inf__item--actual{% endif %}" href="{{ acceso.url }}">{% include "componentes/icono.html" with nombre=acceso.icono %}{{ acceso.nombre }}</a>
+    <a class="barra-inf__item{% if acceso.activo %} barra-inf__item--actual{% endif %}" href="{{ acceso.url }}">{% include "componentes/icono.html" with nombre=acceso.icono %}{{ acceso.corto }}</a>
     {% else %}<span></span>{% endif %}{% endwith %}
     <button class="barra-inf__item" type="button" data-abrir-menu aria-controls="menu-principal" aria-expanded="false">{% include "componentes/icono.html" with nombre="mas" %}Más</button>
   </nav>
@@ -171,6 +174,7 @@
       <div class="buscador__pie"><span><kbd>↑</kbd> <kbd>↓</kbd> moverse</span><span><kbd>Enter</kbd> abrir</span></div>
     </div>
   </div>
+  {% endif %}
 </div>
 {% endblock %}
 </body>

@@ -245,16 +245,6 @@ svg {
   }
 }
 
-/* Lo que el script marca para revelar entra suave al aparecer en pantalla. */
-.js .revelar {
-  opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 0.55s var(--suave), transform 0.55s var(--suave);
-}
-.js .revelar.visible {
-  opacity: 1;
-  transform: none;
-}
 
 /* ---------- Estructura general ---------- */
 
@@ -2794,6 +2784,10 @@ textarea.form-control {
   }
   .barra__acciones .boton {
     flex: 1;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.25;
+    padding-inline: 12px;
   }
 
   .indicadores {
@@ -3020,10 +3014,6 @@ textarea.form-control {
     transition: none !important;
     animation: none !important;
   }
-  .js .revelar {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 @media print {
@@ -3042,10 +3032,6 @@ textarea.form-control {
   }
   .contenido {
     padding: 0;
-  }
-  .revelar {
-    opacity: 1 !important;
-    transform: none !important;
   }
   .tarjeta {
     box-shadow: none;
