@@ -14,7 +14,7 @@ from apps.maestros.catalogos import CATALOGOS
 
 # Cambia en cada entrega de la interfaz: obliga al navegador a pedir el CSS y el JS nuevos
 # en lugar de usar los que guardó en caché. En producción, WhiteNoise ya pone un hash.
-VERSION_ESTATICOS = "2026.11.6"
+VERSION_ESTATICOS = "2026.11.7"
 
 
 @dataclass
@@ -24,6 +24,14 @@ class Item:
     icono: str
     activo: bool = False
     descripcion: str = ""
+
+    @property
+    def corto(self):
+        """Nombre para la barra inferior del celular, que solo tiene una línea por acceso."""
+        return CORTOS.get(self.nombre, self.nombre)
+
+
+CORTOS = {"Existencia PDV": "Existencia", "Traslados a PDV": "Traslados", "Conteo físico": "Conteo"}
 
 
 @dataclass
