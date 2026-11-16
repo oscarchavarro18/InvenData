@@ -14,7 +14,7 @@ from apps.maestros.catalogos import CATALOGOS
 
 # Cambia en cada entrega de la interfaz: obliga al navegador a pedir el CSS y el JS nuevos
 # en lugar de usar los que guardó en caché. En producción, WhiteNoise ya pone un hash.
-VERSION_ESTATICOS = "2026.11.7"
+VERSION_ESTATICOS = "2026.11.8"
 
 
 @dataclass

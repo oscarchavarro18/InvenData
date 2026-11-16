@@ -1,5 +1,6 @@
 # Atajos de trabajo (WSL/Linux). Uso: make up, make test, make lint ...
-.PHONY: up down logs migrate makemigrations superusuario test lint format bash psql
+.PHONY: up down logs migrate makemigrations superusuario test lint format bash psql \
+	prod-up prod-down prod-logs prod-ps prod-superusuario prod-respaldo prod-certificado
 
 up:
 	@test -f .env || cp .env.example .env
@@ -24,3 +25,20 @@ bash:
 	docker compose exec web sh
 psql:
 	docker compose exec db psql -U invendata -d invendata
+
+# --- Producción (en el VPS; usan el .env de producción) ---
+PROD = docker compose -f docker-compose.prod.yml
+prod-up:
+	$(PROD) up -d --build
+prod-down:
+	$(PROD) down
+prod-logs:
+	$(PROD) logs -f --tail=200 web nginx
+prod-ps:
+	$(PROD) ps
+prod-superusuario:
+	$(PROD) exec web python manage.py createsuperuser
+prod-respaldo:
+	sh docker/respaldo.sh
+prod-certificado:
+	sh docker/obtener-certificado.sh
