@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}Inventario inicial · InvenData{% endblock %}
+{% block encabezado %}Levantamiento de inventario inicial{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">El punto de partida de cada ubicación, una sola vez. Se registra en borrador y solo al aprobarlo el Gerente se convierte en existencia real.</p>
+</div>
+
+{% if por_arrancar %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Ubicaciones por arrancar</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada">
+      <thead><tr><th>Ubicación</th><th>Tipo</th><th>Acción</th></tr></thead>
+      <tbody>
+        {% for ubicacion in por_arrancar %}
+        <tr>
+          <td class="tabla__principal">{{ ubicacion.nombre }}</td>
+          <td data-label="Tipo">{{ ubicacion.get_tipo_display }}</td>
+          <td>
+            <form method="post" action="{% url 'levantamiento:levantamiento_crear' ubicacion.pk %}">
+              {% csrf_token %}
+              <button class="boton boton--chico" type="submit">Iniciar levantamiento</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Levantamientos</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Ubicación</th><th>Fecha</th><th>Registró</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for lev in levantamientos %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'levantamiento:levantamiento_detalle' lev.pk %}">{{ lev.ubicacion.nombre }}</a></td>
+          <td data-label="Fecha">{{ lev.fecha|date:"d/m/Y" }}</td>
+          <td data-label="Registró">{{ lev.usuario.nombre_completo }}</td>
+          <td data-label="Estado">{% if lev.estado == "APROBADO" %}<span class="pill pill--verde">Aprobado</span>{% else %}<span class="pill pill--ambar">Registrado</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="tabla__vacia">Todavía no hay levantamientos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

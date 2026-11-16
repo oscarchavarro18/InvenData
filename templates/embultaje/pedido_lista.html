@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Pedidos · InvenData{% endblock %}
+{% block encabezado %}Pedidos{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Pedidos de clientes mayoristas y su alistamiento por lote.</p>
+  <div class="barra__acciones">
+    {% if user.puede_operar_bodega %}<a class="boton" href="{% url 'embultaje:pedido_crear' %}">Nuevo pedido</a>{% endif %}
+  </div>
+</div>
+<div class="tarjeta">
+  <form method="get" class="filtros">
+    <select class="form-select" name="estado" aria-label="Filtrar por estado">
+      <option value="">Todos los estados</option>
+      {% for valor, nombre in estados %}
+      <option value="{{ valor }}"{% if estado == valor %} selected{% endif %}>{{ nombre }}</option>
+      {% endfor %}
+    </select>
+    <button class="boton boton--claro" type="submit">Filtrar</button>
+    {% if estado %}<a class="boton boton--claro" href="{% url 'embultaje:pedido_lista' %}">Limpiar</a>{% endif %}
+  </form>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th class="num">Líneas</th><th>Estado</th></tr>
+      </thead>
+      <tbody>
+        {% for pedido in pagina %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'embultaje:pedido_detalle' pedido.pk %}">{{ pedido.consecutivo }}</a></td>
+          <td data-label="Cliente">{{ pedido.cliente.razon_social }}</td>
+          <td data-label="Fecha">{{ pedido.fecha|date:"d/m/Y" }}</td>
+          <td data-label="Líneas" class="num">{{ pedido.n_lineas }}</td>
+          <td data-label="Estado">{% include "componentes/pill_pedido.html" with estado=pedido.estado %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="tabla__vacia">{% if estado %}Ningún pedido en ese estado.{% else %}Todavía no hay pedidos.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</div>
+{% endblock %}

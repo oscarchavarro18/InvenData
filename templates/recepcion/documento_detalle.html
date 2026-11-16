@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block titulo %}{{ documento }} · InvenData{% endblock %}
+{% block encabezado %}Recepción de producto{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'recepcion:documento_lista' %}">← Volver a recepción</a>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza">
+    <h2>{{ documento }}</h2>
+    {% include "componentes/pill_documento.html" with estado=documento.estado %}
+  </div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Proveedor</div><div class="dato__valor">{{ documento.proveedor.razon_social }}</div></div>
+    <div><div class="dato__etiqueta">NIT / documento</div><div class="dato__valor">{{ documento.proveedor.numero_documento }}</div></div>
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ documento.fecha|date:"d/m/Y" }}</div></div>
+    <div><div class="dato__etiqueta">Líneas</div><div class="dato__valor">{{ filas|length }}</div></div>
+  </div>
+</section>
+
+{% for fila in filas %}
+<section class="tarjeta" id="linea-{{ fila.linea.pk }}">
+  <div class="tarjeta__cabeza">
+    <div>
+      <h2>{{ fila.linea.producto.nombre }}</h2>
+      <span class="tabla__secundario">{{ fila.linea.producto.codigo }}</span>
+    </div>
+    <div class="linea__cifras">
+      <div><div class="cifra__etiqueta">Declarado</div><div class="cifra__valor">{{ fila.linea.cantidad }} kg</div></div>
+      <div><div class="cifra__etiqueta">Recibido</div><div class="cifra__valor">{{ fila.recibido }} kg</div></div>
+      <div>
+        <div class="cifra__etiqueta">Diferencia{% if documento.estado == "ABIERTO" %} (en vivo){% endif %}</div>
+        <div class="cifra__valor">
+          {{ fila.diferencia }} kg
+          {% if fila.lotes %}
+            {% if fila.diferencia == 0 %}<span class="pill pill--verde">Completo</span>
+            {% elif fila.diferencia > 0 %}<span class="pill pill--ambar">Faltante</span>
+            {% else %}<span class="pill pill--rojo">Sobrante</span>{% endif %}
+          {% endif %}
+        </div>
+      </div>
+      {% if puede_operar and not fila.lotes %}
+      <form method="post" action="{% url 'recepcion:linea_eliminar' fila.linea.pk %}" data-confirmar="¿Quitar esta línea del documento?">
+        {% csrf_token %}
+        <button class="boton boton--peligro boton--chico" type="submit">Quitar</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% for item in fila.lotes %}
+  <div class="lote" id="lote-{{ item.lote.pk }}">
+    <div class="lote__cabeza">
+      <a class="lote__codigo" href="{% url 'inventario:lote_detalle' item.lote.pk %}">Lote {{ item.lote.codigo }}</a>
+      <span class="lote__meta">
+        <span class="pill pill--azul">{{ item.lote.get_estado_producto_display }}</span>
+        <span>Vence {{ item.lote.fecha_vencimiento|date:"d/m/Y" }}</span>
+        <strong>{{ item.total }} kg netos</strong>
+        {% if puede_operar and not item.tandas %}
+        <form method="post" action="{% url 'recepcion:lote_eliminar' item.lote.pk %}" data-confirmar="¿Eliminar este lote?">
+          {% csrf_token %}
+          <button class="boton boton--peligro boton--chico" type="submit">Eliminar lote</button>
+        </form>
+        {% endif %}
+      </span>
+    </div>
+    {% if item.tandas %}
+    <div class="tabla-caja">
+      <table class="tabla tabla--compacta tabla--apilada">
+        <thead>
+          <tr>
+            <th>Embalaje</th>
+            <th class="num">Cant.</th>
+            <th class="num">Bruto (kg)</th>
+            <th class="num">Neto (kg)</th>
+            <th class="num">Temp.</th>
+            <th>Destino</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tanda in item.tandas %}
+          <tr>
+            <td>{{ tanda.tipo_embalaje.nombre }}</td>
+            <td data-label="Cant." class="num">{{ tanda.cantidad_embalajes }}</td>
+            <td data-label="Bruto (kg)" class="num">{{ tanda.peso_bruto }}</td>
+            <td data-label="Neto (kg)" class="num">{{ tanda.peso_neto }}</td>
+            <td data-label="Temp." class="num">{{ tanda.temperatura }} °C</td>
+            <td data-label="Destino">{{ tanda.ubicacion_destino.nombre }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="vacio vacio--chico">Este lote todavía no tiene pesadas.</p>
+    {% endif %}
+    {% if puede_operar %}
+    <form method="post" action="{% url 'recepcion:pesada_registrar' item.lote.pk %}" class="form-tanda" data-tanda>
+      {% csrf_token %}
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="emb-{{ item.lote.pk }}">Embalaje</label>
+        <select class="form-select" name="tipo_embalaje" id="emb-{{ item.lote.pk }}" required>
+          {% for e in embalajes %}<option value="{{ e.pk }}">{{ e.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="cant-{{ item.lote.pk }}">Cant. de embalajes</label>
+        <input class="form-control" type="number" inputmode="numeric" name="cantidad_embalajes" id="cant-{{ item.lote.pk }}" value="1" min="0" step="1" required>
+      </div>
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="bruto-{{ item.lote.pk }}">Peso bruto (kg)</label>
+        <input class="form-control" type="number" inputmode="decimal" name="peso_bruto" id="bruto-{{ item.lote.pk }}" min="0.01" step="0.01" required>
+      </div>
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="temp-{{ item.lote.pk }}">Temp. (°C)</label>
+        <input class="form-control" type="number" inputmode="decimal" name="temperatura" id="temp-{{ item.lote.pk }}" step="0.01" required>
+      </div>
+      <div class="campo">
+        <label class="etiqueta etiqueta--chica" for="dest-{{ item.lote.pk }}">Destino</label>
+        <select class="form-select" name="ubicacion_destino" id="dest-{{ item.lote.pk }}" required>
+          {% for u in destinos %}<option value="{{ u.pk }}">{{ u.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-tanda__pie">
+        <span class="form-tanda__neto">Neto estimado: <strong data-neto>—</strong></span>
+        <button class="boton boton--chico" type="submit">Registrar pesada</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+  {% empty %}
+  <p class="vacio">Esta línea todavía no tiene lotes.</p>
+  {% endfor %}
+
+  {% if puede_operar %}
+  <form method="post" action="{% url 'recepcion:lote_crear' fila.linea.pk %}" class="form-lote">
+    {% csrf_token %}
+    <strong class="form-lote__titulo">Nuevo lote</strong>
+    {% for campo in fila.lote_form %}
+    <div class="campo">
+      <label class="etiqueta etiqueta--chica" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      {{ campo }}
+    </div>
+    {% endfor %}
+    <button class="boton boton--claro boton--chico" type="submit">Crear lote</button>
+  </form>
+  {% endif %}
+</section>
+{% empty %}
+<section class="tarjeta"><p class="vacio">Este documento no tiene líneas.</p></section>
+{% endfor %}
+
+{% if puede_operar %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Agregar producto al documento</h2></div>
+  <div class="tarjeta__cuerpo">
+    <form method="post" action="{% url 'recepcion:linea_agregar' documento.pk %}" class="fila-form">
+      {% csrf_token %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ linea_form.producto.id_for_label }}">Producto</label>
+        {{ linea_form.producto }}
+      </div>
+      <div class="campo">
+        <label class="etiqueta" for="{{ linea_form.cantidad.id_for_label }}">Cantidad declarada (kg)</label>
+        {{ linea_form.cantidad }}
+      </div>
+      <button class="boton" type="submit">Agregar</button>
+    </form>
+  </div>
+</section>
+{% endif %}
+
+{% if puede_operar %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Cerrar documento</h2></div>
+  <div class="tarjeta__cuerpo">
+    <p class="barra__texto">Al cerrar, lo pesado entra a la existencia de su ubicación de destino, las diferencias contra lo declarado quedan fijas y el documento no admite más cambios.</p>
+    {% for aviso in avisos_cierre %}<div class="alerta alerta-warning"><span class="alerta__texto">{{ aviso }}</span></div>{% endfor %}
+    {% for motivo in impiden_cierre %}<div class="alerta alerta-error"><span class="alerta__texto">{{ motivo }}</span></div>{% endfor %}
+    <form method="post" action="{% url 'recepcion:documento_cerrar' documento.pk %}" data-confirmar="¿Cerrar el documento {{ documento }}? Esta acción no se puede deshacer.">
+      {% csrf_token %}
+      <button class="boton" type="submit"{% if impiden_cierre or not filas %} disabled{% endif %}>Cerrar documento</button>
+    </form>
+  </div>
+</section>
+{% elif documento.estado == "CERRADO" %}
+<section class="tarjeta">
+  <div class="tarjeta__cuerpo">
+    <p class="barra__texto">Documento cerrado: el producto recibido ya forma parte de la existencia.</p>
+    <a class="boton boton--claro" href="{% url 'inventario:existencias' %}">Ver inventario</a>
+  </div>
+</section>
+{% endif %}
+
+{% if puede_operar %}
+{{ taras|json_script:"taras" }}
+<script>
+  (function () {
+    var taras = JSON.parse(document.getElementById("taras").textContent);
+    document.querySelectorAll("[data-tanda]").forEach(function (form) {
+      var embalaje = form.querySelector("[name=tipo_embalaje]");
+      var cantidad = form.querySelector("[name=cantidad_embalajes]");
+      var bruto = form.querySelector("[name=peso_bruto]");
+      var salida = form.querySelector("[data-neto]");
+      function calcular() {
+        var tara = parseFloat(taras[embalaje.value]);
+        var b = parseFloat(bruto.value);
+        var c = parseInt(cantidad.value, 10);
+        if (isNaN(tara) || isNaN(b) || isNaN(c)) { salida.textContent = "—"; return; }
+        var neto = b - tara * c;
+        salida.textContent = neto.toFixed(2).replace(".", ",") + " kg";
+        salida.classList.toggle("neto--malo", neto <= 0);
+      }
+      [embalaje, cantidad, bruto].forEach(function (el) { el.addEventListener("input", calcular); });
+      calcular();
+    });
+  })();
+</script>
+{% endif %}
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+</script>
+{% endblock %}

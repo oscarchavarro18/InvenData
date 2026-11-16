@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block titulo %}{{ despacho }} · InvenData{% endblock %}
+{% block encabezado %}Despacho mayorista{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <a class="volver" href="{% url 'despacho:despacho_lista' %}">← Volver a despachos</a>
+  <div class="barra__acciones"><button class="boton boton--claro" type="button" onclick="window.print()">Imprimir documento</button></div>
+</div>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza">
+    <h2>{{ despacho.get_tipo_documento_display }} {{ despacho.numero_documento }}</h2>
+    {% if despacho.fecha_hora_recepcion %}<span class="pill pill--verde">Entrega firmada</span>{% else %}<span class="pill pill--ambar">Entrega pendiente</span>{% endif %}
+  </div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ despacho.fecha_hora|date:"d/m/Y H:i" }}</div></div>
+    <div><div class="dato__etiqueta">Cliente</div><div class="dato__valor">{{ despacho.pedido.cliente.razon_social }}</div></div>
+    <div><div class="dato__etiqueta">Documento del cliente</div><div class="dato__valor">{{ despacho.pedido.cliente.tipo_documento }} {{ despacho.pedido.cliente.numero_documento }}</div></div>
+    <div><div class="dato__etiqueta">Pedido</div><div class="dato__valor"><a href="{% url 'embultaje:pedido_detalle' despacho.pedido_id %}">{{ despacho.pedido.consecutivo }}</a></div></div>
+    <div><div class="dato__etiqueta">Placa</div><div class="dato__valor">{{ despacho.placa_vehiculo }}</div></div>
+    <div><div class="dato__etiqueta">Sello</div><div class="dato__valor">{{ despacho.numero_sello|default:"—" }}</div></div>
+    <div><div class="dato__etiqueta">Conductor</div><div class="dato__valor">{{ despacho.nombre_conductor }}</div></div>
+    <div><div class="dato__etiqueta">Despacha</div><div class="dato__valor">{{ despacho.usuario_despacha.nombre_completo }}</div></div>
+    {% if despacho.valor_total is not None %}
+    <div><div class="dato__etiqueta">Valor (informativo)</div><div class="dato__valor">$ {{ despacho.valor_total|floatformat:2 }}</div></div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Líneas</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Lote</th><th>Producto</th><th>Sale de</th><th class="num">Bultos o cajas</th><th class="num">Peso</th><th>Vence</th></tr></thead>
+      <tbody>
+        {% for detalle in detalles %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'inventario:lote_detalle' detalle.alistamiento_detalle.lote_id %}">{{ detalle.alistamiento_detalle.lote.codigo }}</a></td>
+          <td data-label="Producto">{{ detalle.alistamiento_detalle.lote.producto.nombre }}</td>
+          <td data-label="Sale de">{{ detalle.alistamiento_detalle.ubicacion.nombre }}</td>
+          <td data-label="Bultos o cajas" class="num">{{ detalle.cantidad_bultos_cajas|default_if_none:"—" }}</td>
+          <td data-label="Peso" class="num">{{ detalle.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Vence">{{ detalle.alistamiento_detalle.lote.fecha_vencimiento|date:"d/m/Y" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="4" class="num">Total</td><td class="num">{{ total|floatformat:2 }} kg</td><td></td></tr></tfoot>
+    </table>
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Constancia de entrega</h2></div>
+  {% if despacho.fecha_hora_recepcion %}
+  <div class="datos">
+    <div><div class="dato__etiqueta">Recibió</div><div class="dato__valor">{{ despacho.nombre_recibe }}</div></div>
+    <div><div class="dato__etiqueta">Fecha de entrega</div><div class="dato__valor">{{ despacho.fecha_hora_recepcion|date:"d/m/Y H:i" }}</div></div>
+    {% for evidencia in evidencias %}
+    <div><div class="dato__etiqueta">Documento firmado</div><div class="dato__valor"><a href="{% url 'despacho:evidencia_ver' despacho.pk evidencia.pk %}" target="_blank" rel="noopener">Ver archivo</a></div></div>
+    {% endfor %}
+  </div>
+  {% if trazos %}
+  <div class="tarjeta__cuerpo">
+    <div class="dato__etiqueta">Firma digital</div>
+    <svg class="firma" viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="Firma de {{ despacho.nombre_recibe }}">
+      {% for camino in trazos %}<path d="{{ camino }}" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>{% endfor %}
+    </svg>
+  </div>
+  {% endif %}
+  {% elif entrega_form %}
+  <form method="post" action="{% url 'despacho:entrega_registrar' despacho.pk %}" enctype="multipart/form-data" novalidate class="tarjeta__cuerpo" data-entrega>
+    {% csrf_token %}
+    {{ entrega_form.firma }}
+    <div class="rejilla-form">
+      <div class="campo campo--ancho">
+        <label class="etiqueta" for="{{ entrega_form.nombre_recibe.id_for_label }}">{{ entrega_form.nombre_recibe.label }}</label>
+        {{ entrega_form.nombre_recibe }}
+      </div>
+      <div class="campo campo--ancho">
+        <span class="etiqueta">Firma en pantalla</span>
+        <canvas class="firma firma--lienzo" width="900" height="300" data-lienzo aria-label="Espacio para firmar con el dedo o el mouse"></canvas>
+        <button class="boton boton--claro boton--chico" type="button" data-borrar>Borrar firma</button>
+      </div>
+      <div class="campo campo--ancho">
+        <label class="etiqueta" for="{{ entrega_form.archivo.id_for_label }}">{{ entrega_form.archivo.label }}</label>
+        {{ entrega_form.archivo }}
+        <div class="campo__ayuda">Si el documento se firmó en papel, adjunte la foto. Puede usar las dos opciones.</div>
+      </div>
+    </div>
+    <div class="formulario-pie"><button class="boton" type="submit">Registrar entrega</button></div>
+  </form>
+  {% else %}
+  <p class="vacio">El cliente todavía no ha firmado la entrega.</p>
+  {% endif %}
+</section>
+
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+
+  // Firma en pantalla (RF-37): guarda los trazos como puntos de 0 a 1000 en cada eje.
+  document.querySelectorAll("form[data-entrega]").forEach(function (form) {
+    var lienzo = form.querySelector("[data-lienzo]");
+    var campo = form.querySelector("input[name=firma]");
+    var ctx = lienzo.getContext("2d");
+    var trazos = [];
+    var actual = null;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    function punto(e) {
+      var caja = lienzo.getBoundingClientRect();
+      return [
+        Math.round((e.clientX - caja.left) / caja.width * 1000),
+        Math.round((e.clientY - caja.top) / caja.height * 1000)
+      ];
+    }
+    function dibujar(p) {
+      ctx.lineTo(p[0] * lienzo.width / 1000, p[1] * lienzo.height / 1000);
+      ctx.stroke();
+    }
+    lienzo.addEventListener("pointerdown", function (e) {
+      lienzo.setPointerCapture(e.pointerId);
+      actual = [punto(e)];
+      trazos.push(actual);
+      ctx.beginPath();
+      ctx.moveTo(actual[0][0] * lienzo.width / 1000, actual[0][1] * lienzo.height / 1000);
+    });
+    lienzo.addEventListener("pointermove", function (e) {
+      if (!actual) { return; }
+      var p = punto(e);
+      actual.push(p);
+      dibujar(p);
+    });
+    ["pointerup", "pointercancel"].forEach(function (evento) {
+      lienzo.addEventListener(evento, function () { actual = null; });
+    });
+    form.querySelector("[data-borrar]").addEventListener("click", function () {
+      trazos = [];
+      ctx.clearRect(0, 0, lienzo.width, lienzo.height);
+    });
+    form.addEventListener("submit", function () {
+      campo.value = trazos.length ? JSON.stringify(trazos) : "";
+    });
+  });
+</script>
+{% endblock %}

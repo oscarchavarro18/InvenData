@@ -12,6 +12,7 @@ htmlcov/
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # Django
 staticfiles/

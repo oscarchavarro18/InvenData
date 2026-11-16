@@ -1,0 +1,19 @@
+<div class="tabla-caja">
+  <table class="tabla tabla--densa tabla--apilada">
+    <thead><tr>{% for columna in columnas %}<th{% if columna.numerica %} class="num"{% endif %}>{{ columna.titulo }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for fila in filas %}
+      <tr>
+        {% for valor, columna in fila %}<td class="{% if forloop.first %}tabla__principal{% endif %}{% if columna.numerica %} num{% endif %}"{% if not forloop.first %} data-label="{{ columna.titulo }}"{% endif %}>{{ valor }}</td>{% endfor %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="{{ columnas|length }}" class="tabla__vacia">Sin datos para los filtros elegidos.</td></tr>
+      {% endfor %}
+      {% if totales and mostrar_totales %}
+      <tr>
+        {% for valor, columna in totales %}<td class="{% if forloop.first %}tabla__principal{% endif %}{% if columna.numerica %} num{% endif %}"{% if not forloop.first and valor %} data-label="{{ columna.titulo }}"{% endif %}><strong>{{ valor }}</strong></td>{% endfor %}
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>

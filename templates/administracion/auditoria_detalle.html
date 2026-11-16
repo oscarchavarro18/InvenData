@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Auditoría #{{ registro.pk }} · InvenData{% endblock %}
+{% block encabezado %}{{ registro.get_accion_display }} · {{ modulo }} #{{ registro.registro_id }}{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'auditoria:auditoria_lista' %}">← Volver a la auditoría</a>
+<section class="tarjeta">
+  <div class="datos">
+    <div><div class="dato__etiqueta">Fecha y hora</div><div class="dato__valor texto-codigo">{{ registro.fecha_hora|date:"d/m/Y H:i:s" }}</div></div>
+    <div><div class="dato__etiqueta">Usuario</div><div class="dato__valor">{{ registro.usuario.nombre_completo }}</div></div>
+    <div><div class="dato__etiqueta">Módulo</div><div class="dato__valor">{{ modulo }}</div></div>
+    <div><div class="dato__etiqueta">Acción</div><div class="dato__valor">{% include "administracion/_accion.html" with accion=registro.accion %}</div></div>
+    <div><div class="dato__etiqueta">Dirección IP</div><div class="dato__valor texto-codigo">{{ registro.direccion_ip|default:"-" }}</div></div>
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>{% if registro.valor_anterior is None %}Valores con los que se creó{% else %}Qué cambió{% endif %}</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Campo</th>{% if registro.valor_anterior is not None %}<th>Antes</th>{% endif %}<th>{% if registro.valor_anterior is None %}Valor{% else %}Después{% endif %}</th></tr></thead>
+      <tbody>
+        {% for c in cambios %}
+        <tr{% if c.cambio %} class="fila--cambio"{% endif %}>
+          <td class="tabla__principal">{{ c.campo }}{% if c.cambio %} <span class="pill pill--ambar">Cambió</span>{% endif %}</td>
+          {% if registro.valor_anterior is not None %}<td data-label="Antes" class="texto-codigo">{{ c.antes }}</td>{% endif %}
+          <td data-label="{% if registro.valor_anterior is None %}Valor{% else %}Después{% endif %}" class="texto-codigo">{{ c.despues }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="tabla__vacia">El registro no guardó valores.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Historia de este registro</h2></div>
+  <ul class="recientes">
+    {% for h in historia %}
+    <li>
+      <span>
+        <a class="tabla__principal" href="{% url 'auditoria:auditoria_detalle' h.pk %}">{{ h.get_accion_display }}{% if h.pk == registro.pk %} · este cambio{% endif %}</a>
+        <span class="tabla__secundario">{{ h.usuario.nombre_completo }} · {{ h.fecha_hora|date:"d/m/Y H:i" }}</span>
+      </span>
+      {% include "administracion/_accion.html" with accion=h.accion %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

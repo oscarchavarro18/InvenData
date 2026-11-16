@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}{{ venta }} · InvenData{% endblock %}
+{% block encabezado %}Venta · {{ canal.titulo }}{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <a class="volver" href="{% url 'puntoventa:venta_lista' %}?tipo={{ tipo }}&amp;ubicacion={{ venta.ubicacion_id }}">← Volver a ventas</a>
+  <div class="barra__acciones"><button class="boton boton--claro" type="button" onclick="window.print()">Imprimir</button></div>
+</div>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>{{ venta }}</h2></div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Punto de venta</div><div class="dato__valor">{{ venta.ubicacion.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ venta.fecha|date:"d/m/Y" }}</div></div>
+    <div><div class="dato__etiqueta">Atendió</div><div class="dato__valor">{{ venta.usuario.nombre_completo }}</div></div>
+    {% if tipo == "restaurante" %}
+    <div><div class="dato__etiqueta">Restaurante</div><div class="dato__valor">{{ venta.cliente.razon_social }}</div></div>
+    <div><div class="dato__etiqueta">Documento</div><div class="dato__valor">{{ venta.cliente.tipo_documento }} {{ venta.cliente.numero_documento }}</div></div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Productos</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Producto</th><th>Código</th><th class="num">Cantidad</th></tr></thead>
+      <tbody>
+        {% for linea in lineas %}
+        <tr>
+          <td class="tabla__principal">{{ linea.producto.nombre }}</td>
+          <td data-label="Código">{{ linea.producto.codigo }}</td>
+          <td data-label="Cantidad" class="num">{{ linea.cantidad|floatformat:2 }} kg</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="2" class="num">Total</td><td class="num">{{ total|floatformat:2 }} kg</td></tr></tfoot>
+    </table>
+  </div>
+</section>
+{% endblock %}

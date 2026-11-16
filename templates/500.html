@@ -1,0 +1,22 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Error del sistema · InvenData</title>
+  <link rel="icon" type="image/png" href="{% static 'img/logo-fishpid.png' %}">
+  <link rel="stylesheet" href="{% static 'css/invendata.css' %}">
+</head>
+<body>
+  {% comment %}Página independiente: si falló algo grave, no depende del menú ni de la sesión.{% endcomment %}
+  <main class="contenido">
+    <section class="error-pagina">
+      <img src="{% static 'img/logo-fishpid.png' %}" alt="FishPID" width="96" height="96">
+      <div class="error-pagina__codigo">500</div>
+      <h1 class="pagina-titulo">Algo falló en el sistema</h1>
+      <p class="barra__texto error-pagina__texto">No se guardó ningún cambio a medias: cada operación se completa entera o no se hace. Intente de nuevo en un momento; si vuelve a pasar, avise a la gerencia con la hora en que ocurrió.</p>
+      <a class="boton" href="/">Volver al inicio</a>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Nueva orden de transformación · InvenData{% endblock %}
+{% block encabezado %}Nueva orden de transformación{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'inventario:existencias' %}">← Volver al inventario</a>
+<form method="post" novalidate class="tarjeta tarjeta--angosta">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>Lote {{ existencia.lote.codigo }}</h2></div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Producto</div><div class="dato__valor">{{ existencia.lote.producto.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Ubicación</div><div class="dato__valor">{{ existencia.ubicacion.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Disponible</div><div class="dato__valor">{{ existencia.cantidad|floatformat:2 }} kg</div></div>
+  </div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <p class="campo__ayuda">La orden queda en borrador y no mueve la existencia. Los derivados se registran al confirmarla, cuando termine el corte o el reempaque.</p>
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{% url 'inventario:existencias' %}">Cancelar</a>
+      <button class="boton" type="submit">Crear orden</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

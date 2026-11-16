@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}Embultaje del lote {{ registro.lote.codigo }} · InvenData{% endblock %}
+{% block encabezado %}Registro de embultaje{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'embultaje:documento_detalle' registro.documento_embultaje_id %}">← Volver al {{ registro.documento_embultaje|lower }}</a>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Lote <a href="{% url 'inventario:lote_detalle' registro.lote_id %}">{{ registro.lote.codigo }}</a></h2></div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Producto</div><div class="dato__valor">{{ registro.lote.producto.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Sale de</div><div class="dato__valor">{{ registro.ubicacion_origen.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Llega a</div><div class="dato__valor">{{ registro.ubicacion_destino.nombre }}</div></div>
+    <div><div class="dato__etiqueta">Total embultado</div><div class="dato__valor">{{ registro.total_kilos|floatformat:2 }} kg</div></div>
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ registro.fecha_hora|date:"d/m/Y H:i" }}</div></div>
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Bultos</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada">
+      <thead>
+        <tr><th>Consecutivo</th><th class="num">Peso</th><th>Vence</th></tr>
+      </thead>
+      <tbody>
+        {% for bulto in bultos %}
+        <tr>
+          <td class="tabla__principal">{{ bulto.consecutivo }}</td>
+          <td data-label="Peso" class="num">{{ bulto.peso|floatformat:2 }} kg</td>
+          <td data-label="Vence">{{ bulto.fecha_vencimiento|date:"d/m/Y" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="tabla__vacia">Se registró con el total digitado: no genera bultos numerados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

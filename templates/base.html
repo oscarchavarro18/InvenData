@@ -1,0 +1,179 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>{% block titulo %}InvenData{% endblock %}</title>
+  <script>document.documentElement.classList.add("js");</script>
+  <link rel="icon" type="image/png" href="{% static 'img/logo-fishpid.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'img/logo-fishpid.png' %}">
+  <link rel="preload" href="{% static 'fuentes/archivo-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'css/invendata.css' %}?v={{ version_estaticos }}">
+  <script src="{% static 'js/invendata.js' %}?v={{ version_estaticos }}" defer></script>
+</head>
+<body>
+{% block cuerpo %}
+<a class="saltar" href="#contenido">Saltar al contenido</a>
+<div class="app" id="app">
+  <header class="barra-sup" id="barra-sup">
+    <div class="barra-sup__dentro">
+      <a class="marca" href="{% url 'inicio' %}" aria-label="InvenData, ir al inicio">
+        <img class="marca__logo" src="{% static 'img/logo-fishpid.png' %}" alt="" width="52" height="52">
+        <span class="marca__sep" aria-hidden="true"></span>
+        <span class="marca__nombre">InvenData</span>
+      </a>
+
+      {% if user.is_authenticated %}
+      <nav class="menu" id="menu-principal" aria-label="Principal">
+        <div class="menu__cabeza">
+          <strong>Menú</strong>
+          <button class="boton-icono" type="button" data-cerrar-menu aria-label="Cerrar menú">{% include "componentes/icono.html" with nombre="cerrar" %}</button>
+        </div>
+        <a class="menu__item{% if nav.inicio.activo %} menu__item--activo{% endif %}" href="{{ nav.inicio.url }}"{% if nav.inicio.activo %} aria-current="page"{% endif %}><span class="menu__icono">{% include "componentes/icono.html" with nombre="inicio" %}</span><span class="menu__nombre">Inicio</span></a>
+        {% for grupo in nav.grupos %}
+        <div class="menu__grupo{% if grupo.activo %} menu__grupo--actual{% endif %}{% if forloop.last %} menu__grupo--derecha{% endif %}">
+          <button class="menu__disparador" type="button" aria-expanded="false" data-grupo>{{ grupo.nombre }}{% include "componentes/icono.html" with nombre="abajo" clase="icono--giro" %}</button>
+          <div class="menu__panel">
+            {% for item in grupo.items %}
+            <a class="menu__item{% if item.activo %} menu__item--activo{% endif %}" href="{{ item.url }}"{% if item.activo %} aria-current="page"{% endif %}>
+              <span class="menu__icono">{% include "componentes/icono.html" with nombre=item.icono %}</span>
+              <span class="menu__texto"><span class="menu__nombre">{{ item.nombre }}</span><span class="menu__desc">{{ item.descripcion }}</span></span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+        {% if nav.reportes %}
+        <a class="menu__item{% if nav.reportes.activo %} menu__item--activo{% endif %}" href="{{ nav.reportes.url }}"{% if nav.reportes.activo %} aria-current="page"{% endif %}><span class="menu__icono">{% include "componentes/icono.html" with nombre="reportes" %}</span><span class="menu__nombre">Reportes</span></a>
+        {% endif %}
+        <div class="menu__pie">
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">{% include "componentes/icono.html" with nombre="salir" %}Cerrar sesión</button>
+          </form>
+        </div>
+      </nav>
+
+      <div class="barra-sup__acciones">
+        <button class="buscador-boton" type="button" data-abrir-buscador aria-label="Buscar módulo">
+          {% include "componentes/icono.html" with nombre="buscar" %}
+          <span>Ir a un módulo</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+        {% if nav.acciones %}
+        <button class="boton boton--registrar" type="button" data-abrir-hoja="hoja-registrar">{% include "componentes/icono.html" with nombre="sumar" %}Registrar</button>
+        {% endif %}
+        <details class="usuario-menu">
+          <summary aria-label="Menú de usuario">
+            <span class="avatar" aria-hidden="true">{{ nav.iniciales }}</span>
+            <span class="usuario-menu__nombre">{{ user.nombre_completo }}<span class="usuario-menu__perfil">{{ user.perfil }}</span></span>
+          </summary>
+          <div class="usuario-menu__panel">
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button type="submit">{% include "componentes/icono.html" with nombre="salir" %}Cerrar sesión</button>
+            </form>
+          </div>
+        </details>
+      </div>
+      {% endif %}
+    </div>
+  </header>
+  <div class="velo" data-cerrar-menu></div>
+
+  <main class="contenido" id="contenido">
+    {% if messages %}
+    <div class="mensajes" role="status" aria-live="polite">
+      {% for mensaje in messages %}
+      <div class="alerta alerta-{{ mensaje.level_tag }}"{% if mensaje.level_tag == 'error' %} role="alert"{% endif %}>
+        <span class="alerta__texto">{{ mensaje }}</span>
+        <button class="alerta__cerrar" type="button" aria-label="Cerrar aviso">&times;</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% block cabecera %}
+    <div class="pagina-cabeza">
+      <h1 class="pagina-titulo">{% block encabezado %}InvenData{% endblock %}</h1>
+    </div>
+    {% endblock %}
+    {% block contenido %}{% endblock %}
+  </main>
+
+  {% if user.is_authenticated %}
+  <nav class="barra-inf" aria-label="Accesos rápidos">
+    <a class="barra-inf__item{% if nav.inicio.activo %} barra-inf__item--actual{% endif %}" href="{{ nav.inicio.url }}">{% include "componentes/icono.html" with nombre="inicio" %}Inicio</a>
+    {% with acceso=nav.barra.0 %}{% if acceso %}
+    <a class="barra-inf__item{% if acceso.activo %} barra-inf__item--actual{% endif %}" href="{{ acceso.url }}">{% include "componentes/icono.html" with nombre=acceso.icono %}{{ acceso.corto }}</a>
+    {% else %}<span></span>{% endif %}{% endwith %}
+    <div class="barra-inf__centro">
+      {% if nav.acciones %}
+      <button class="barra-inf__registrar" type="button" data-abrir-hoja="hoja-registrar" aria-label="Registrar">{% include "componentes/icono.html" with nombre="sumar" %}</button>
+      {% else %}
+      <button class="barra-inf__item" type="button" data-abrir-buscador>{% include "componentes/icono.html" with nombre="buscar" %}Buscar</button>
+      {% endif %}
+    </div>
+    {% with acceso=nav.barra.1 %}{% if acceso %}
+    <a class="barra-inf__item{% if acceso.activo %} barra-inf__item--actual{% endif %}" href="{{ acceso.url }}">{% include "componentes/icono.html" with nombre=acceso.icono %}{{ acceso.corto }}</a>
+    {% else %}<span></span>{% endif %}{% endwith %}
+    <button class="barra-inf__item" type="button" data-abrir-menu aria-controls="menu-principal" aria-expanded="false">{% include "componentes/icono.html" with nombre="mas" %}Más</button>
+  </nav>
+
+  {% if nav.acciones %}
+  <div class="hoja" id="hoja-registrar" role="dialog" aria-modal="true" aria-labelledby="hoja-registrar-titulo" hidden>
+    <button class="hoja__velo" type="button" data-cerrar-hoja aria-label="Cerrar"></button>
+    <div class="hoja__panel">
+      <span class="hoja__asa" aria-hidden="true"></span>
+      <div class="hoja__cabeza">
+        <h2 id="hoja-registrar-titulo">¿Qué va a registrar?</h2>
+        <button class="boton-icono" type="button" data-cerrar-hoja aria-label="Cerrar">{% include "componentes/icono.html" with nombre="cerrar" %}</button>
+      </div>
+      <div class="acciones-rejilla">
+        {% for accion in nav.acciones %}
+        <a class="accion" href="{{ accion.url }}">
+          <span class="menu__icono">{% include "componentes/icono.html" with nombre=accion.icono %}</span>
+          <span><span class="accion__nombre">{{ accion.nombre }}</span><span class="accion__desc">{{ accion.descripcion }}</span></span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="hoja hoja--confirmar" id="confirmacion" role="alertdialog" aria-modal="true" aria-labelledby="confirmacion-titulo" aria-describedby="confirmacion-texto" hidden>
+    <button class="hoja__velo" type="button" data-cerrar-confirmacion aria-label="Cancelar"></button>
+    <div class="hoja__panel">
+      <span class="hoja__asa" aria-hidden="true"></span>
+      <h2 id="confirmacion-titulo" class="confirmar__titulo">¿Confirma esta acción?</h2>
+      <p id="confirmacion-texto" class="confirmar__texto" data-confirmacion-texto></p>
+      <div class="formulario-pie">
+        <button class="boton boton--claro" type="button" data-cerrar-confirmacion>Cancelar</button>
+        <button class="boton" type="button" data-aceptar-confirmacion>Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="buscador" id="buscador" role="dialog" aria-modal="true" aria-label="Ir a un módulo" hidden>
+    <button class="hoja__velo" type="button" data-cerrar-buscador aria-label="Cerrar"></button>
+    <div class="buscador__panel">
+      <label class="buscador__campo">
+        {% include "componentes/icono.html" with nombre="buscar" %}
+        <span class="solo-lectores">Escriba el módulo o la acción</span>
+        <input type="search" placeholder="Recepción, ventas, traslado…" autocomplete="off" data-buscador-campo>
+        <kbd>Esc</kbd>
+      </label>
+      <ul class="buscador__lista" data-buscador-lista>
+        {% for item in nav.buscables %}
+        <li><a href="{{ item.url }}" data-texto="{{ item.nombre|lower }} {{ item.descripcion|lower }}"><span class="menu__icono">{% include "componentes/icono.html" with nombre=item.icono %}</span><span class="menu__texto"><span class="menu__nombre">{{ item.nombre }}</span>{% if item.descripcion %}<span class="menu__desc">{{ item.descripcion }}</span>{% endif %}</span></a></li>
+        {% endfor %}
+      </ul>
+      <p class="buscador__vacio" data-buscador-vacio hidden>No hay coincidencias.</p>
+      <div class="buscador__pie"><span><kbd>↑</kbd> <kbd>↓</kbd> moverse</span><span><kbd>Enter</kbd> abrir</span></div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+</body>
+</html>

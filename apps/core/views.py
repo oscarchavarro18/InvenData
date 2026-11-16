@@ -1,0 +1,60 @@
+from django.contrib.auth.decorators import login_required
+from django.db import connection
+from django.http import JsonResponse
+from django.shortcuts import render
+
+from apps.core.consultas import cadena_del_dia, pendientes, saludo
+from apps.despacho.models import EstadoTraslado, TrasladoPdv
+from apps.inventario.consultas import (
+    DIAS_POR_VENCER,
+    kg_en_bodega,
+    lotes_con_existencia,
+    lotes_por_vencer,
+)
+from apps.puntoventa.consultas import ventas_del_dia
+from apps.recepcion.models import DocumentoProveedor, EstadoDocumento
+
+
+def salud(request):
+    """Verificación de salud: responde 200 si la aplicación y la base de datos están vivas."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        return JsonResponse({"estado": "ok", "base_de_datos": "ok"})
+    except Exception:  # noqa: BLE001
+        return JsonResponse({"estado": "error", "base_de_datos": "sin conexión"}, status=503)
+
+
+@login_required
+def inicio(request):
+    """Tablero: la cadena del día, lo pendiente, lo que vence primero y las cifras clave.
+
+    El administrador de punto de venta no ve nada de la bodega (RN-06): ve los traslados que
+    tiene por recibir y sus ventas del día (M7).
+    """
+    if not request.user.ve_bodega:
+        por_recibir = TrasladoPdv.objects.filter(
+            ubicacion_destino_id=request.user.ubicacion_id, estado=EstadoTraslado.ENVIADO
+        )
+        contexto = {"por_recibir": por_recibir, "saludo": saludo()}
+        if request.user.es_admin_pdv:
+            contexto["ventas_hoy"] = ventas_del_dia(request.user.ubicacion)
+        return render(request, "inicio.html", contexto)
+    por_vencer = lotes_por_vencer()
+    lista, total = pendientes(request.user)
+    contexto = {
+        "saludo": saludo(),
+        "cadena": cadena_del_dia(),
+        "pendientes": lista,
+        "total_pendientes": total,
+        "documentos_abiertos": DocumentoProveedor.objects.filter(
+            estado=EstadoDocumento.ABIERTO
+        ).count(),
+        "kg_en_bodega": kg_en_bodega(),
+        "lotes_con_existencia": lotes_con_existencia().count(),
+        "n_por_vencer": len(por_vencer),
+        "por_vencer": por_vencer[:5],
+        "dias_por_vencer": DIAS_POR_VENCER,
+        "recientes": DocumentoProveedor.objects.select_related("proveedor")[:5],
+    }
+    return render(request, "inicio.html", contexto)

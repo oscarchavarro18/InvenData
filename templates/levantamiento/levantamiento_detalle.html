@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block titulo %}{{ levantamiento }} · InvenData{% endblock %}
+{% block encabezado %}Levantamiento de inventario inicial{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'levantamiento:levantamiento_lista' %}">← Volver a levantamientos</a>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza">
+    <h2>{{ levantamiento.ubicacion.nombre }}</h2>
+    {% if levantamiento.estado == "APROBADO" %}<span class="pill pill--verde">Aprobado</span>{% else %}<span class="pill pill--ambar">Registrado</span>{% endif %}
+  </div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ levantamiento.fecha|date:"d/m/Y" }}</div></div>
+    <div><div class="dato__etiqueta">Registró</div><div class="dato__valor">{{ levantamiento.usuario.nombre_completo }}</div></div>
+    {% if levantamiento.usuario_aprueba %}
+    <div><div class="dato__etiqueta">Aprobó</div><div class="dato__valor">{{ levantamiento.usuario_aprueba.nombre_completo }} · {{ levantamiento.fecha_hora_aprobacion|date:"d/m/Y H:i" }}</div></div>
+    {% endif %}
+  </div>
+  {% if puede_aprobar %}
+  <div class="tarjeta__cuerpo">
+    <form method="post" action="{% url 'levantamiento:levantamiento_aprobar' levantamiento.pk %}" data-confirmar="¿Aprobar el levantamiento? Se crea la existencia real y la ubicación queda arrancada: después solo se corrige con ajustes.">
+      {% csrf_token %}
+      <div class="formulario-pie"><button class="boton" type="submit">Aprobar levantamiento</button></div>
+    </form>
+  </div>
+  {% endif %}
+</section>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>{% if en_pdv %}Productos contados{% else %}Lotes contados{% endif %}</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      {% if en_pdv %}
+      <thead><tr><th>Producto</th><th class="num">Cantidad</th>{% if editable %}<th>Acción</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for detalle in productos %}
+        <tr>
+          <td class="tabla__principal">{{ detalle.producto.nombre }}</td>
+          <td data-label="Cantidad" class="num">{{ detalle.cantidad|floatformat:2 }} kg</td>
+          {% if editable %}<td><form method="post" action="{% url 'levantamiento:linea_quitar' 'producto' detalle.pk %}">{% csrf_token %}<button class="boton boton--claro boton--chico" type="submit">Quitar</button></form></td>{% endif %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="tabla__vacia">Todavía no hay productos contados.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% else %}
+      <thead><tr><th>Producto</th><th>Estado</th><th>Vence</th><th class="num">Cantidad</th><th>Embultado</th><th>Lote</th>{% if editable %}<th>Acción</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for detalle in lotes %}
+        <tr>
+          <td class="tabla__principal">{{ detalle.producto.nombre }}</td>
+          <td data-label="Estado">{{ detalle.get_estado_producto_display }}</td>
+          <td data-label="Vence">{{ detalle.fecha_vencimiento|date:"d/m/Y" }}</td>
+          <td data-label="Cantidad" class="num">{{ detalle.cantidad|floatformat:2 }} kg</td>
+          <td data-label="Embultado">{% if detalle.estado_lote_resultante == "EMBULTADO" %}Sí{% if detalle.cantidad_bultos is not None %} · {{ detalle.cantidad_bultos }} bultos{% endif %}{% else %}No{% endif %}</td>
+          <td data-label="Lote">{% if detalle.lote %}<a href="{% url 'inventario:lote_detalle' detalle.lote_id %}">{{ detalle.lote.codigo }}</a>{% else %}Se crea al aprobar{% endif %}</td>
+          {% if editable %}<td><form method="post" action="{% url 'levantamiento:linea_quitar' 'lote' detalle.pk %}">{% csrf_token %}<button class="boton boton--claro boton--chico" type="submit">Quitar</button></form></td>{% endif %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="tabla__vacia">Todavía no hay lotes contados.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% endif %}
+    </table>
+  </div>
+</section>
+
+{% if form %}
+<form method="post" action="{% url 'levantamiento:linea_agregar' levantamiento.pk %}" novalidate class="tarjeta">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>{% if en_pdv %}Agregar producto contado{% else %}Agregar lote contado{% endif %}</h2></div>
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      <div class="campo">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <p class="campo__ayuda">Mientras esté registrado se puede corregir: quite la fila y vuelva a agregarla. Nada se vuelve existencia hasta que el Gerente apruebe (RN-01).</p>
+    <div class="formulario-pie"><button class="boton boton--claro" type="submit">Agregar</button></div>
+  </div>
+</form>
+{% endif %}
+
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titulo %}{{ conteo }} · InvenData{% endblock %}
+{% block encabezado %}Conteo físico{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'conteo:conteo_lista' %}">← Volver a conteos</a>
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>{{ conteo.ubicacion.nombre }}</h2></div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Fecha</div><div class="dato__valor">{{ conteo.fecha|date:"d/m/Y" }}</div></div>
+    <div><div class="dato__etiqueta">Contó</div><div class="dato__valor">{{ conteo.usuario.nombre_completo }}</div></div>
+  </div>
+</section>
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Contado y sistema</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Producto</th><th class="num">Bultos o cajas contados</th><th class="num">Existencia hoy en el sistema</th>{% if user.es_gerente %}<th>Acción</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for fila in filas %}
+        <tr>
+          <td class="tabla__principal">{{ fila.detalle.producto.nombre }}</td>
+          <td data-label="Contados" class="num">{{ fila.detalle.cantidad_bultos }}</td>
+          <td data-label="Sistema" class="num">{{ fila.kg_sistema|floatformat:2 }} kg</td>
+          {% if user.es_gerente %}
+          <td>{% if conteo.ubicacion.tipo == "PUNTO_VENTA" %}<a class="boton boton--claro boton--chico" href="{% url 'conteo:ajuste_pdv' %}?ubicacion={{ conteo.ubicacion_id }}&amp;producto={{ fila.detalle.producto_id }}">Ajustar</a>{% else %}<a class="boton boton--claro boton--chico" href="{% url 'inventario:existencias' %}?ubicacion={{ conteo.ubicacion_id }}&amp;q={{ fila.detalle.producto.codigo }}">Ver lotes</a>{% endif %}</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tarjeta__cuerpo">
+    <p class="campo__ayuda">La comparación es informal a propósito: el conteo va en bultos y el sistema en kg (RF-52). Si hay una diferencia real, el Gerente registra un ajuste con su motivo y justificación (RF-53). En bodega el ajuste se hace por lote, desde el inventario.</p>
+  </div>
+</section>
+{% endblock %}

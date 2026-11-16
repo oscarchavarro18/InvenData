@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}Recepción · InvenData{% endblock %}
+{% block encabezado %}Recepción de producto{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Documentos del proveedor y el producto recibido contra ellos.</p>
+  <div class="barra__acciones">
+    {% if user.puede_operar_recepcion %}<a class="boton" href="{% url 'recepcion:documento_crear' %}">Nuevo documento</a>{% endif %}
+  </div>
+</div>
+<div class="tarjeta">
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr>
+          <th>Documento</th>
+          <th>Proveedor</th>
+          <th>Fecha</th>
+          <th class="num">Líneas</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for documento in documentos %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'recepcion:documento_detalle' documento.pk %}">{{ documento }}</a></td>
+          <td data-label="Proveedor">{{ documento.proveedor.razon_social }}</td>
+          <td data-label="Fecha">{{ documento.fecha|date:"d/m/Y" }}</td>
+          <td data-label="Líneas" class="num">{{ documento.n_lineas }}</td>
+          <td data-label="Estado">{% include "componentes/pill_documento.html" with estado=documento.estado %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="tabla__vacia">Todavía no hay documentos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

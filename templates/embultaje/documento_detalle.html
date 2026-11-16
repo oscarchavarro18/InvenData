@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}{{ documento }} · InvenData{% endblock %}
+{% block encabezado %}Embultaje{% endblock %}
+{% block contenido %}
+<a class="volver" href="{% url 'embultaje:documento_lista' %}">← Volver a embultaje</a>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>{{ documento }}</h2></div>
+  <div class="datos">
+    <div><div class="dato__etiqueta">Abierto por</div><div class="dato__valor">{{ documento.usuario.nombre_completo }}</div></div>
+    <div><div class="dato__etiqueta">Registros</div><div class="dato__valor">{{ registros|length }}</div></div>
+    <div><div class="dato__etiqueta">Total embultado</div><div class="dato__valor">{{ total|default_if_none:0|floatformat:2 }} kg</div></div>
+  </div>
+</section>
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Registros</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead>
+        <tr><th>Hora</th><th>Lote</th><th>Producto</th><th>Origen → destino</th><th>Modo</th><th class="num">Total</th><th>Registró</th></tr>
+      </thead>
+      <tbody>
+        {% for registro in registros %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'embultaje:registro_detalle' registro.pk %}">{{ registro.fecha_hora|date:"H:i" }}</a></td>
+          <td data-label="Lote"><a href="{% url 'inventario:lote_detalle' registro.lote_id %}">{{ registro.lote.codigo }}</a></td>
+          <td data-label="Producto">{{ registro.lote.producto.nombre }}</td>
+          <td data-label="Origen → destino">{{ registro.ubicacion_origen.nombre }} → {{ registro.ubicacion_destino.nombre }}</td>
+          <td data-label="Modo">{% if registro.usa_calculo_bultos %}{{ registro.n_bultos }} bultos × {{ registro.peso_por_bulto|floatformat:2 }} kg{% else %}Total digitado{% endif %}</td>
+          <td data-label="Total" class="num">{{ registro.total_kilos|floatformat:2 }} kg</td>
+          <td data-label="Registró">{{ registro.usuario.nombre_completo }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="tabla__vacia">El documento no tiene registros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

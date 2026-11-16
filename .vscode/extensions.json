@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "charliermarsh.ruff",
+    "ms-azuretools.vscode-docker",
+    "batisteo.vscode-django",
+    "editorconfig.editorconfig"
+  ]
+}

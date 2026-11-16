@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}Ajuste de existencia · InvenData{% endblock %}
+{% block encabezado %}Ajuste manual de existencia{% endblock %}
+{% block contenido %}
+<a class="volver" href="{{ volver }}">← Volver</a>
+<form method="post" novalidate class="tarjeta tarjeta--angosta" data-confirmar="¿Registrar el ajuste? Queda en el historial con su justificación y no se puede editar.">
+  {% csrf_token %}
+  <div class="tarjeta__cabeza"><h2>{{ titulo }}</h2></div>
+  {% if actual is not None %}
+  <div class="datos">
+    <div><div class="dato__etiqueta">Existencia actual</div><div class="dato__valor">{{ actual|floatformat:2 }} kg</div></div>
+  </div>
+  {% endif %}
+  <div class="tarjeta__cuerpo">
+    {% if form.non_field_errors %}
+    <div class="alerta alerta-error" role="alert"><span class="alerta__texto">{{ form.non_field_errors|join:" " }}</span></div>
+    {% endif %}
+    <div class="rejilla-form">
+      {% for campo in form %}
+      <div class="campo{% if campo.name == 'observacion' or campo.name == 'producto' %} campo--ancho{% endif %}">
+        <label class="etiqueta" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="campo__error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <p class="campo__ayuda">Solo el Gerente registra ajustes (RF-53). Pérdida y vencimiento restan; un sobrante suma; un error de conteo u otro motivo puede ir en cualquier sentido. Para deshacer un registro puntual mal hecho, use mejor «Reversar» en el historial.</p>
+    <div class="formulario-pie">
+      <a class="boton boton--claro" href="{{ volver }}">Cancelar</a>
+      <button class="boton" type="submit">Registrar ajuste</button>
+    </div>
+  </div>
+</form>
+<script>
+  document.querySelectorAll("form[data-confirmar]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (!window.confirm(form.getAttribute("data-confirmar"))) { e.preventDefault(); }
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block titulo %}Despachos · InvenData{% endblock %}
+{% block encabezado %}Despacho mayorista{% endblock %}
+{% block contenido %}
+<div class="barra">
+  <p class="barra__texto">Documentos que acompañan el furgón. Al despachar, la existencia se descuenta en el momento.</p>
+</div>
+
+{% if por_despachar %}
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Pedidos alistados por despachar</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--densa tabla--apilada">
+      <thead><tr><th>Pedido</th><th>Cliente</th><th>Alistado</th>{% if user.puede_operar_bodega %}<th>Acción</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for pedido in por_despachar %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'embultaje:pedido_detalle' pedido.pk %}">{{ pedido.consecutivo }}</a></td>
+          <td data-label="Cliente">{{ pedido.cliente.razon_social }}</td>
+          <td data-label="Alistado">{{ pedido.fecha_hora_alistamiento|date:"d/m/Y H:i" }}</td>
+          {% if user.puede_operar_bodega %}<td><a class="boton boton--chico" href="{% url 'despacho:despacho_crear' pedido.pk %}">Despachar</a></td>{% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="tarjeta">
+  <div class="tarjeta__cabeza"><h2>Despachos registrados</h2></div>
+  <div class="tabla-caja">
+    <table class="tabla tabla--apilada">
+      <thead><tr><th>Documento</th><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Placa</th><th>Entrega</th></tr></thead>
+      <tbody>
+        {% for despacho in pagina %}
+        <tr>
+          <td><a class="tabla__principal" href="{% url 'despacho:despacho_detalle' despacho.pk %}">{{ despacho }}</a></td>
+          <td data-label="Pedido">{{ despacho.pedido.consecutivo }}</td>
+          <td data-label="Cliente">{{ despacho.pedido.cliente.razon_social }}</td>
+          <td data-label="Fecha">{{ despacho.fecha_hora|date:"d/m/Y H:i" }}</td>
+          <td data-label="Placa">{{ despacho.placa_vehiculo }}</td>
+          <td data-label="Entrega">{% if despacho.fecha_hora_recepcion %}<span class="pill pill--verde">Firmada</span>{% else %}<span class="pill pill--ambar">Pendiente</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="tabla__vacia">Todavía no hay despachos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "componentes/paginacion.html" %}
+</section>
+{% endblock %}
